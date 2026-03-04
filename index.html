@@ -36,9 +36,8 @@
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  /* Hide scrollbar but keep scrolling */
   ::-webkit-scrollbar { width: 0; background: transparent; }
-  html { scrollbar-width: none; }
+  html { scrollbar-width: none; overflow-x: hidden; }
 
   body {
     font-family: 'Syne', sans-serif;
@@ -666,11 +665,12 @@
   .settings-panel {
     position: fixed;
     top: 0;
-    right: -340px;
+    right: 0;
     width: 300px;
     height: 100%;
     background: var(--surface);
     border-left: 1px solid var(--border);
+    transform: translateX(100%);
     z-index: 200;
     padding: 24px;
     padding-top: calc(24px + var(--safe-top));
@@ -679,7 +679,7 @@
     -webkit-overflow-scrolling: touch;
   }
 
-  .settings-panel.open { right: 0; }
+  .settings-panel.open { transform: translateX(0); }
 
   .settings-backdrop {
     position: fixed;
