@@ -1178,11 +1178,6 @@ function init() {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 
-  // Auto-fetch from server on page load — silent if we already have cached data
-  if (navigator.onLine) {
-    const hasCached = allNews.length > 0;
-    fetchNews(hasCached);
-  }
 }
 
 function setupAutoRefresh() {
