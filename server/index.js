@@ -244,6 +244,24 @@ app.post('/api/news/gnews', async (req, res) => {
   }
 });
 
+// ── Return cached data only (no fetching) ──────────────────────
+app.get('/api/news/cached', (req, res) => {
+  const response_data = {
+    timestamp: new Date().toISOString(),
+    cacheTTL: CACHE_TTL / 60000,
+  };
+
+  for (const source of ['google', 'newsapi', 'gnews']) {
+    response_data[source] = {
+      news: newsCache[source].data?.news || [],
+      cached: true,
+      age: newsCache[source].timestamp ? Math.floor((Date.now() - newsCache[source].timestamp) / 60000) : null,
+    };
+  }
+
+  res.json(response_data);
+});
+
 // ── Cache status endpoint ───────────────────────────────────────
 app.get('/api/cache-status', (req, res) => {
   const status = {};

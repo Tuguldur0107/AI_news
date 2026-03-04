@@ -1178,11 +1178,41 @@ function init() {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 
-  // Fetch from server cache on page load
+  // Load from server cache (no re-fetching, just returns what server has)
   if (navigator.onLine) {
-    fetchNews();
+    loadFromServerCache();
   }
+}
 
+async function loadFromServerCache() {
+  const apiUrl = getApiUrl();
+  if (!apiUrl) return;
+
+  try {
+    const response = await fetch(`${apiUrl}/api/news/cached`);
+    const data = await response.json();
+
+    let hasNews = false;
+    for (const src of ['google', 'newsapi', 'gnews']) {
+      if (data[src] && data[src].news && data[src].news.length > 0) {
+        allSourceData[src] = data[src].news;
+        hasNews = true;
+      }
+    }
+
+    if (hasNews) {
+      localStorage.setItem(CACHE_KEY, JSON.stringify(allSourceData));
+      localStorage.setItem(CACHE_TIME_KEY, new Date().toISOString());
+      allNews = allSourceData[activeTab] || [];
+      renderNews(allNews);
+      updateStats(true);
+      updateCacheInfo();
+      updateTabCounts();
+      updateLastUpdated();
+    }
+  } catch (e) {
+    // Server unreachable — localStorage cache already shown from init
+  }
 }
 
 function setupAutoRefresh() {
