@@ -1,0 +1,17 @@
+{
+  "name": "ai-pulse-server",
+  "version": "1.0.0",
+  "description": "AI PULSE — Anthropic API proxy server",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "cors": "^2.8.5",
+    "express-rate-limit": "^7.4.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

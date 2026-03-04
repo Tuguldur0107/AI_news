@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>AI PULSE — Хиймэл оюун мэдээ</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#050508">
+
+<!-- iOS PWA -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AI PULSE">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap');
+
+  :root {
+    --bg: #050508;
+    --surface: #0d0d14;
+    --border: #1a1a2e;
+    --accent: #00ff88;
+    --accent2: #ff3366;
+    --accent3: #7b61ff;
+    --text: #e8e8f0;
+    --muted: #5a5a7a;
+    --card: #0f0f1a;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: contain;
+  }
+
+  /* Animated background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .scanline {
+    position: fixed;
+    top: -100%;
+    left: 0;
+    right: 0;
+    height: 200%;
+    background: linear-gradient(transparent 50%, rgba(0,255,136,0.015) 50%);
+    background-size: 100% 4px;
+    animation: scanlines 8s linear infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  @keyframes scanlines {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(50%); }
+  }
+
+  /* Header */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    padding: 12px 20px;
+    padding-top: calc(12px + var(--safe-top));
+    padding-left: calc(20px + var(--safe-left));
+    padding-right: calc(20px + var(--safe-right));
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    background: rgba(5,5,8,0.85);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    color: #000;
+    font-size: 12px;
+    animation: pulse-glow 2s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 10px rgba(0,255,136,0.5); }
+    50% { box-shadow: 0 0 25px rgba(0,255,136,0.9), 0 0 50px rgba(0,255,136,0.3); }
+  }
+
+  .logo-text {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .logo-sub {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .status-dot {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: blink 1.5s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+
+  .dot.offline { background: var(--accent2); animation: none; }
+  .dot.loading { background: var(--accent3); }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+  }
+
+  /* Main layout */
+  .container {
+    position: relative;
+    z-index: 5;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+    padding-left: calc(20px + var(--safe-left));
+    padding-right: calc(20px + var(--safe-right));
+    padding-bottom: calc(20px + var(--safe-bottom));
+  }
+
+  /* Pull to refresh indicator */
+  .pull-indicator {
+    text-align: center;
+    padding: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s, padding 0.3s;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 2px;
+  }
+
+  .pull-indicator.visible {
+    max-height: 50px;
+    padding: 12px 0;
+  }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .fetch-btn {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 12px 24px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .fetch-btn:hover {
+    background: #00ffaa;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(0,255,136,0.4);
+  }
+
+  .fetch-btn:active {
+    transform: scale(0.97);
+  }
+
+  .fetch-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .topic-filters {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .topic-filters::-webkit-scrollbar { display: none; }
+
+  .filter-tag {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 8px 14px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .filter-tag:hover, .filter-tag.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(0,255,136,0.05);
+  }
+
+  /* News grid */
+  .news-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+  }
+
+  .news-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    animation: fadeInUp 0.4s ease forwards;
+    opacity: 0;
+    transition: border-color 0.2s, transform 0.2s;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .news-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px;
+    height: 100%;
+    background: var(--accent);
+    transform: scaleY(0);
+    transform-origin: top;
+    transition: transform 0.3s;
+  }
+
+  .news-card:hover::before { transform: scaleY(1); }
+  .news-card:hover {
+    border-color: rgba(0,255,136,0.3);
+    transform: translateY(-2px);
+  }
+
+  .news-card:active {
+    transform: scale(0.98);
+  }
+
+  .news-card.featured {
+    grid-column: span 2;
+    border-color: rgba(0,255,136,0.2);
+  }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .card-category {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 2px;
+  }
+
+  .cat-model { background: rgba(123,97,255,0.15); color: var(--accent3); border: 1px solid rgba(123,97,255,0.3); }
+  .cat-research { background: rgba(0,255,136,0.1); color: var(--accent); border: 1px solid rgba(0,255,136,0.2); }
+  .cat-business { background: rgba(255,51,102,0.1); color: var(--accent2); border: 1px solid rgba(255,51,102,0.2); }
+  .cat-safety { background: rgba(255,165,0,0.1); color: #ffa500; border: 1px solid rgba(255,165,0,0.2); }
+  .cat-tools { background: rgba(0,200,255,0.1); color: #00c8ff; border: 1px solid rgba(0,200,255,0.2); }
+
+  .card-time {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+  }
+
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.4;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+
+  .news-card.featured .card-title { font-size: 18px; }
+
+  .card-summary {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-bottom: 14px;
+  }
+
+  .card-source {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  .source-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .card-importance {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    font-family: 'Space Mono', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    opacity: 0.15;
+  }
+
+  /* Loading state */
+  .loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    gap: 16px;
+  }
+
+  .loading-bar {
+    width: 200px;
+    height: 2px;
+    background: var(--border);
+    overflow: hidden;
+    border-radius: 1px;
+  }
+
+  .loading-bar::after {
+    content: '';
+    display: block;
+    height: 100%;
+    width: 40%;
+    background: var(--accent);
+    animation: loading-slide 1.2s ease-in-out infinite;
+  }
+
+  @keyframes loading-slide {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(350%); }
+  }
+
+  .loading-text {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+  }
+
+  /* Empty state */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    gap: 14px;
+    text-align: center;
+    padding: 20px;
+  }
+
+  .empty-icon {
+    font-size: 40px;
+    opacity: 0.3;
+  }
+
+  .empty-text {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .empty-sub {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    opacity: 0.6;
+  }
+
+  /* Stats bar */
+  .stats-bar {
+    display: flex;
+    gap: 24px;
+    padding: 14px 0;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .stat-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+    font-family: 'Syne', sans-serif;
+  }
+
+  /* Detail modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 100;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+
+  .modal-overlay.open {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .modal {
+    background: var(--card);
+    border: 1px solid rgba(0,255,136,0.2);
+    border-bottom: none;
+    max-width: 680px;
+    width: 100%;
+    max-height: 85vh;
+    max-height: 85dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 28px;
+    padding-bottom: calc(28px + var(--safe-bottom));
+    position: relative;
+    transform: translateY(100%);
+    transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+    border-radius: 16px 16px 0 0;
+  }
+
+  .modal-overlay.open .modal { transform: translateY(0); }
+
+  .modal-handle {
+    width: 36px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 0 auto 20px;
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 16px; right: 16px;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    width: 36px; height: 36px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    border-radius: 8px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .modal-close:hover {
+    border-color: var(--accent2);
+    color: var(--accent2);
+  }
+
+  .modal-category { margin-bottom: 12px; }
+  .modal-title { font-size: 22px; font-weight: 800; margin-bottom: 16px; line-height: 1.3; padding-right: 40px; }
+  .modal-detail { font-size: 14px; color: var(--muted); line-height: 1.8; user-select: text; -webkit-user-select: text; }
+  .modal-source {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* Settings panel */
+  .settings-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 8px 12px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+    border-radius: 4px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .settings-btn:hover { border-color: var(--accent3); color: var(--accent3); }
+
+  .settings-panel {
+    position: fixed;
+    top: 0;
+    right: -320px;
+    width: 300px;
+    height: 100%;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    z-index: 200;
+    padding: 24px;
+    padding-top: calc(24px + var(--safe-top));
+    transition: right 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .settings-panel.open { right: 0; }
+
+  .settings-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 199;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+
+  .settings-backdrop.open { opacity: 1; pointer-events: all; }
+
+  .settings-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 24px;
+    letter-spacing: 2px;
+  }
+
+  .settings-group {
+    margin-bottom: 20px;
+  }
+
+  .settings-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+
+  .settings-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 12px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.2s;
+    border-radius: 4px;
+  }
+
+  .settings-input:focus { border-color: var(--accent); }
+
+  .settings-note {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    opacity: 0.6;
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+
+  .settings-close {
+    position: absolute;
+    top: 16px;
+    top: calc(16px + var(--safe-top));
+    right: 16px;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    width: 32px; height: 32px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+  }
+
+  /* Offline banner */
+  .offline-banner {
+    display: none;
+    background: rgba(255,165,0,0.1);
+    border: 1px solid rgba(255,165,0,0.3);
+    padding: 10px 16px;
+    margin-bottom: 16px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: #ffa500;
+    text-align: center;
+    letter-spacing: 1px;
+    border-radius: 4px;
+  }
+
+  .offline-banner.visible { display: block; }
+
+  /* Error state */
+  .error-msg {
+    background: rgba(255,51,102,0.1);
+    border: 1px solid rgba(255,51,102,0.3);
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--accent2);
+    display: none;
+    border-radius: 4px;
+  }
+
+  .error-msg.visible { display: block; }
+
+  /* Cache indicator */
+  .cache-badge {
+    display: inline-block;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--accent3);
+    border: 1px solid rgba(123,97,255,0.3);
+    padding: 2px 8px;
+    border-radius: 2px;
+    margin-left: 8px;
+    letter-spacing: 1px;
+  }
+
+  /* Desktop responsive */
+  @media (min-width: 769px) {
+    header {
+      padding: 16px 32px;
+      padding-top: calc(16px + var(--safe-top));
+    }
+    .container { padding: 28px 32px; }
+    .modal {
+      align-self: center;
+      border-radius: 12px;
+      border-bottom: 1px solid rgba(0,255,136,0.2);
+      max-height: 80vh;
+    }
+    .modal-overlay {
+      align-items: center;
+      padding: 20px;
+    }
+    .modal-handle { display: none; }
+  }
+
+  /* Mobile responsive */
+  @media (max-width: 768px) {
+    .news-grid { grid-template-columns: 1fr; }
+    .news-card.featured { grid-column: span 1; }
+    .news-card.featured .card-title { font-size: 16px; }
+    .stats-bar { gap: 16px; flex-wrap: wrap; }
+    .logo-text { font-size: 15px; letter-spacing: 3px; }
+    .logo-sub { font-size: 8px; }
+    .status-dot span { display: none; }
+    .controls { gap: 8px; }
+    .fetch-btn { padding: 10px 18px; font-size: 12px; }
+  }
+
+  @media (max-width: 380px) {
+    .logo-sub { display: none; }
+    .settings-btn { padding: 8px; font-size: 14px; }
+    .settings-btn span { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="scanline"></div>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">AI</div>
+    <div>
+      <div class="logo-text">AI PULSE</div>
+      <div class="logo-sub">Хиймэл оюуны мэдээ</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="status-dot">
+      <div class="dot" id="statusDot"></div>
+      <span id="statusText">БЭЛЭН</span>
+    </div>
+    <button class="settings-btn" onclick="toggleSettings()">⚙ <span>ТОХИРГОО</span></button>
+  </div>
+</header>
+
+<!-- Settings Panel -->
+<div class="settings-backdrop" id="settingsBackdrop" onclick="toggleSettings()"></div>
+<div class="settings-panel" id="settingsPanel">
+  <button class="settings-close" onclick="toggleSettings()">✕</button>
+  <div class="settings-title">ТОХИРГОО</div>
+
+  <div class="settings-group">
+    <div class="settings-label">API SERVER URL</div>
+    <input class="settings-input" id="apiUrl" type="url" placeholder="https://your-app.railway.app">
+    <div class="settings-note">Railway дээрх серверийн хаяг</div>
+  </div>
+
+  <div class="settings-group">
+    <div class="settings-label">АВТОМАТ ШИНЭЧЛЭЛТ (МИНУТ)</div>
+    <input class="settings-input" id="refreshInterval" type="number" min="5" max="120" value="30">
+    <div class="settings-note">Хамгийн бага: 5 минут</div>
+  </div>
+
+  <div class="settings-group">
+    <div class="settings-label">МЭДЭЭНИЙ КЭШ</div>
+    <button class="fetch-btn" style="font-size:11px; padding:8px 16px; margin-top:4px" onclick="clearCache()">КЭШИЙГ ЦЭВЭРЛЭХ</button>
+    <div class="settings-note" id="cacheInfo">Кэш хоосон</div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="pull-indicator" id="pullIndicator">↓ ШИНЭЧЛЭХИЙН ТУЛД ДООШ ТАТНА УУ</div>
+  <div class="offline-banner" id="offlineBanner">⚡ ОФЛАЙН ГОРИМ — Кэшлэсэн мэдээг харуулж байна</div>
+  <div id="errorMsg" class="error-msg"></div>
+
+  <div class="controls">
+    <button class="fetch-btn" id="fetchBtn" onclick="fetchNews()">
+      ▶ МЭДЭЭ ТАТАХ
+    </button>
+    <div class="topic-filters">
+      <button class="filter-tag active" data-topic="all" onclick="setFilter(this, 'all')">БҮГД</button>
+      <button class="filter-tag" data-topic="model" onclick="setFilter(this, 'model')">ЗАГВАР</button>
+      <button class="filter-tag" data-topic="research" onclick="setFilter(this, 'research')">СУДАЛГАА</button>
+      <button class="filter-tag" data-topic="business" onclick="setFilter(this, 'business')">БИЗНЕС</button>
+      <button class="filter-tag" data-topic="safety" onclick="setFilter(this, 'safety')">АЮУЛГҮЙ БАЙДАЛ</button>
+      <button class="filter-tag" data-topic="tools" onclick="setFilter(this, 'tools')">ХЭРЭГСЭЛ</button>
+    </div>
+  </div>
+
+  <div class="stats-bar" id="statsBar" style="display:none">
+    <div class="stat"><div class="stat-value" id="statCount">0</div><div>НИЙТ МЭДЭЭ</div></div>
+    <div class="stat"><div class="stat-value" id="statFeatured">0</div><div>ОНЦЛОХ</div></div>
+    <div class="stat"><div class="stat-value" id="statTime">—</div><div>ШИНЭЧЛЭЛТ</div></div>
+  </div>
+
+  <div id="newsContainer">
+    <div class="empty-state">
+      <div class="empty-icon">◈</div>
+      <div class="empty-text">Мэдээ татах товчийг дарна уу</div>
+      <div class="empty-sub">// AI PULSE хамгийн сүүлийн мэдээг танд хүргэнэ</div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" id="modalContent">
+    <div class="modal-handle"></div>
+    <button class="modal-close" onclick="closeModalBtn()">✕</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+let allNews = [];
+let currentFilter = 'all';
+let isLoading = false;
+let autoRefreshTimer = null;
+
+const CACHE_KEY = 'ai-pulse-news';
+const CACHE_TIME_KEY = 'ai-pulse-news-time';
+const API_URL_KEY = 'ai-pulse-api-url';
+const REFRESH_KEY = 'ai-pulse-refresh';
+
+const CATEGORY_COLORS = {
+  'model': 'cat-model',
+  'research': 'cat-research',
+  'business': 'cat-business',
+  'safety': 'cat-safety',
+  'tools': 'cat-tools'
+};
+
+const CATEGORY_LABELS = {
+  'model': 'ЗАГВАР',
+  'research': 'СУДАЛГАА',
+  'business': 'БИЗНЕС',
+  'safety': 'АЮУЛГҮЙ БАЙДАЛ',
+  'tools': 'ХЭРЭГСЭЛ'
+};
+
+// Load settings
+function getApiUrl() {
+  return localStorage.getItem(API_URL_KEY) || '';
+}
+
+function getRefreshInterval() {
+  return parseInt(localStorage.getItem(REFRESH_KEY) || '30', 10);
+}
+
+function init() {
+  // Restore settings
+  document.getElementById('apiUrl').value = getApiUrl();
+  document.getElementById('refreshInterval').value = getRefreshInterval();
+
+  // Load cached news
+  const cached = localStorage.getItem(CACHE_KEY);
+  if (cached) {
+    try {
+      allNews = JSON.parse(cached);
+      renderNews(allNews);
+      updateStats(true);
+    } catch (e) { /* ignore */ }
+  }
+
+  // Save settings on change
+  document.getElementById('apiUrl').addEventListener('change', function() {
+    localStorage.setItem(API_URL_KEY, this.value.trim());
+  });
+
+  document.getElementById('refreshInterval').addEventListener('change', function() {
+    const val = Math.max(5, Math.min(120, parseInt(this.value) || 30));
+    this.value = val;
+    localStorage.setItem(REFRESH_KEY, val);
+    setupAutoRefresh();
+  });
+
+  updateCacheInfo();
+  setupAutoRefresh();
+  setupPullToRefresh();
+  setupOnlineStatus();
+
+  // Register service worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+}
+
+function setupAutoRefresh() {
+  if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+  const mins = getRefreshInterval();
+  autoRefreshTimer = setInterval(() => {
+    if (!isLoading && allNews.length > 0 && navigator.onLine) fetchNews();
+  }, mins * 60 * 1000);
+}
+
+function setupOnlineStatus() {
+  const banner = document.getElementById('offlineBanner');
+  const update = () => {
+    if (!navigator.onLine) {
+      banner.classList.add('visible');
+      document.getElementById('statusDot').className = 'dot offline';
+      document.getElementById('statusText').textContent = 'ОФЛАЙН';
+    } else {
+      banner.classList.remove('visible');
+      document.getElementById('statusDot').className = 'dot';
+      document.getElementById('statusText').textContent = 'БЭЛЭН';
+    }
+  };
+  window.addEventListener('online', update);
+  window.addEventListener('offline', update);
+  update();
+}
+
+// Pull-to-refresh for mobile
+function setupPullToRefresh() {
+  let startY = 0;
+  let pulling = false;
+  const indicator = document.getElementById('pullIndicator');
+
+  document.addEventListener('touchstart', (e) => {
+    if (window.scrollY === 0 && !isLoading) {
+      startY = e.touches[0].clientY;
+      pulling = true;
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchmove', (e) => {
+    if (!pulling) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy > 60) {
+      indicator.classList.add('visible');
+      indicator.textContent = '↑ СУЛЛАНА УУ';
+    } else if (dy > 20) {
+      indicator.classList.add('visible');
+      indicator.textContent = '↓ ШИНЭЧЛЭХИЙН ТУЛД ДООШ ТАТНА УУ';
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchend', () => {
+    if (!pulling) return;
+    pulling = false;
+    if (indicator.classList.contains('visible') && indicator.textContent.includes('СУЛЛАНА')) {
+      fetchNews();
+    }
+    indicator.classList.remove('visible');
+  }, { passive: true });
+}
+
+async function fetchNews() {
+  if (isLoading) return;
+
+  const apiUrl = getApiUrl();
+  if (!apiUrl) {
+    document.getElementById('errorMsg').textContent = '⚠ ТОХИРГОО: API серверийн URL оруулна уу';
+    document.getElementById('errorMsg').classList.add('visible');
+    toggleSettings();
+    return;
+  }
+
+  isLoading = true;
+  const btn = document.getElementById('fetchBtn');
+  const dot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  const errorMsg = document.getElementById('errorMsg');
+
+  btn.disabled = true;
+  btn.textContent = '⟳ ТАТАЖ БАЙНА...';
+  dot.className = 'dot loading';
+  statusText.textContent = 'АЧААЛЛАЖ БАЙНА';
+  errorMsg.classList.remove('visible');
+
+  document.getElementById('newsContainer').innerHTML = `
+    <div class="loading">
+      <div class="loading-text">// AI МЭДЭЭ ЦУГЛУУЛЖ БАЙНА</div>
+      <div class="loading-bar"></div>
+      <div class="loading-text" style="opacity:0.5">AI PULSE — PROCESSING...</div>
+    </div>
+  `;
+
+  try {
+    const response = await fetch(`${apiUrl}/api/news`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    const data = await response.json();
+    if (data.error) throw new Error(data.error);
+
+    allNews = data.news;
+
+    // Cache to localStorage
+    localStorage.setItem(CACHE_KEY, JSON.stringify(allNews));
+    localStorage.setItem(CACHE_TIME_KEY, new Date().toISOString());
+
+    renderNews(allNews);
+    updateStats(false);
+    updateCacheInfo();
+
+    dot.className = 'dot';
+    statusText.textContent = 'ШИНЭЧЛЭГДСЭН';
+
+  } catch (err) {
+    console.error(err);
+    errorMsg.textContent = `⚠ АЛДАА: ${err.message}`;
+    errorMsg.classList.add('visible');
+    dot.className = 'dot offline';
+    statusText.textContent = 'АЛДАА';
+
+    // Fall back to cache
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      allNews = JSON.parse(cached);
+      renderNews(allNews);
+      updateStats(true);
+    } else {
+      document.getElementById('newsContainer').innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">⚠</div>
+          <div class="empty-text">Мэдээ татахад алдаа гарлаа</div>
+          <div class="empty-sub">// Дахин оролдоно уу</div>
+        </div>
+      `;
+    }
+  }
+
+  btn.disabled = false;
+  btn.textContent = '▶ МЭДЭЭ ШИНЭЧЛЭХ';
+  isLoading = false;
+}
+
+function renderNews(news) {
+  const filtered = currentFilter === 'all' ? news : news.filter(n => n.category === currentFilter);
+
+  if (!filtered.length) {
+    document.getElementById('newsContainer').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">◈</div>
+        <div class="empty-text">Энэ ангиллаар мэдээ олдсонгүй</div>
+      </div>
+    `;
+    return;
+  }
+
+  const sorted = [...filtered].sort((a, b) => b.importance - a.importance);
+
+  const html = sorted.map((item, i) => {
+    const catClass = CATEGORY_COLORS[item.category] || 'cat-tools';
+    const catLabel = CATEGORY_LABELS[item.category] || item.category.toUpperCase();
+    const delay = i * 0.06;
+
+    return `
+      <div class="news-card ${item.featured ? 'featured' : ''}"
+           style="animation-delay: ${delay}s"
+           onclick="openModal(${item.id})">
+        <div class="card-importance">${item.importance}</div>
+        <div class="card-meta">
+          <span class="card-category ${catClass}">${catLabel}</span>
+          <span class="card-time">${item.timeAgo}</span>
+        </div>
+        <div class="card-title">${item.title}</div>
+        <div class="card-summary">${item.summary}</div>
+        <div class="card-source">
+          <div class="source-dot"></div>
+          ${item.source}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('newsContainer').innerHTML = `<div class="news-grid">${html}</div>`;
+}
+
+function updateStats(fromCache) {
+  const bar = document.getElementById('statsBar');
+  bar.style.display = 'flex';
+  document.getElementById('statCount').textContent = allNews.length;
+  document.getElementById('statFeatured').textContent = allNews.filter(n => n.featured).length;
+
+  let timeText = new Date().toLocaleTimeString('mn-MN', { hour: '2-digit', minute: '2-digit' });
+  if (fromCache) {
+    const cachedTime = localStorage.getItem(CACHE_TIME_KEY);
+    if (cachedTime) {
+      timeText = new Date(cachedTime).toLocaleTimeString('mn-MN', { hour: '2-digit', minute: '2-digit' });
+    }
+  }
+  document.getElementById('statTime').innerHTML = timeText + (fromCache ? '<span class="cache-badge">КЭШ</span>' : '');
+}
+
+function setFilter(el, topic) {
+  document.querySelectorAll('.filter-tag').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  currentFilter = topic;
+  if (allNews.length) renderNews(allNews);
+}
+
+function openModal(id) {
+  const item = allNews.find(n => n.id === id);
+  if (!item) return;
+  const catClass = CATEGORY_COLORS[item.category] || 'cat-tools';
+  const catLabel = CATEGORY_LABELS[item.category] || item.category.toUpperCase();
+
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-category"><span class="card-category ${catClass}">${catLabel}</span></div>
+    <div class="modal-title">${item.title}</div>
+    <div class="modal-detail">${item.detail}</div>
+    <div class="modal-source">
+      <div style="margin-bottom:4px">ЭХ СУРВАЛЖ</div>
+      <div style="color: var(--accent)">${item.source}</div>
+      <div style="margin-top:8px">ЧУХЛЫН ЗЭРЭГ: ${item.importance}/10</div>
+      <div>${item.timeAgo}</div>
+    </div>
+  `;
+  document.getElementById('modalOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('modalOverlay')) {
+    document.getElementById('modalOverlay').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+}
+
+function closeModalBtn() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function toggleSettings() {
+  const panel = document.getElementById('settingsPanel');
+  const backdrop = document.getElementById('settingsBackdrop');
+  const isOpen = panel.classList.contains('open');
+  panel.classList.toggle('open');
+  backdrop.classList.toggle('open');
+  if (isOpen) updateCacheInfo();
+}
+
+function clearCache() {
+  localStorage.removeItem(CACHE_KEY);
+  localStorage.removeItem(CACHE_TIME_KEY);
+  updateCacheInfo();
+  allNews = [];
+  document.getElementById('newsContainer').innerHTML = `
+    <div class="empty-state">
+      <div class="empty-icon">◈</div>
+      <div class="empty-text">Кэш цэвэрлэгдсэн</div>
+      <div class="empty-sub">// Мэдээ дахин татна уу</div>
+    </div>
+  `;
+  document.getElementById('statsBar').style.display = 'none';
+}
+
+function updateCacheInfo() {
+  const cached = localStorage.getItem(CACHE_KEY);
+  const time = localStorage.getItem(CACHE_TIME_KEY);
+  const info = document.getElementById('cacheInfo');
+  if (cached && time) {
+    const count = JSON.parse(cached).length;
+    const d = new Date(time);
+    info.textContent = `${count} мэдээ • ${d.toLocaleDateString('mn-MN')} ${d.toLocaleTimeString('mn-MN', {hour:'2-digit', minute:'2-digit'})}`;
+  } else {
+    info.textContent = 'Кэш хоосон';
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.getElementById('modalOverlay').classList.remove('open');
+    document.body.style.overflow = '';
+    const panel = document.getElementById('settingsPanel');
+    if (panel.classList.contains('open')) toggleSettings();
+  }
+});
+
+// Swipe down to close modal on mobile
+let modalTouchStart = 0;
+document.getElementById('modalContent').addEventListener('touchstart', (e) => {
+  modalTouchStart = e.touches[0].clientY;
+}, { passive: true });
+
+document.getElementById('modalContent').addEventListener('touchend', (e) => {
+  const dy = e.changedTouches[0].clientY - modalTouchStart;
+  if (dy > 80) {
+    document.getElementById('modalOverlay').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+}, { passive: true });
+
+// Init
+init();
+</script>
+</body>
+</html>
