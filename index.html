@@ -1002,7 +1002,7 @@
 
   <div class="settings-group">
     <div class="settings-label">АВТОМАТ ШИНЭЧЛЭЛТ (МИНУТ)</div>
-    <input class="settings-input" id="refreshInterval" type="number" min="5" max="120" value="30">
+    <input class="settings-input" id="refreshInterval" type="number" min="5" max="1440" value="600">
     <div class="settings-note">Хамгийн бага: 5 минут</div>
   </div>
 
@@ -1134,7 +1134,7 @@ function getApiUrl() {
 }
 
 function getRefreshInterval() {
-  return parseInt(localStorage.getItem(REFRESH_KEY) || '30', 10);
+  return parseInt(localStorage.getItem(REFRESH_KEY) || '600', 10);
 }
 
 function init() {
@@ -1159,7 +1159,7 @@ function init() {
   });
 
   document.getElementById('refreshInterval').addEventListener('change', function() {
-    const val = Math.max(5, Math.min(120, parseInt(this.value) || 30));
+    const val = Math.max(5, Math.min(1440, parseInt(this.value) || 600));
     this.value = val;
     localStorage.setItem(REFRESH_KEY, val);
     setupAutoRefresh();

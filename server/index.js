@@ -29,7 +29,7 @@ app.get('/health', (req, res) => {
 });
 
 // ── Server-side cache ───────────────────────────────────────────
-const CACHE_TTL = parseInt(process.env.CACHE_TTL_MIN || '30', 10) * 60 * 1000;
+const CACHE_TTL = parseInt(process.env.CACHE_TTL_MIN || '600', 10) * 60 * 1000;
 const newsCache = {
   google:  { data: null, timestamp: 0 },
   newsapi: { data: null, timestamp: 0 },
