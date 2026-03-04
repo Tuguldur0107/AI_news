@@ -453,9 +453,9 @@
     background: rgba(0,0,0,0.85);
     z-index: 100;
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: center;
-    padding: 0;
+    padding: 16px;
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
     opacity: 0;
@@ -471,7 +471,6 @@
   .modal {
     background: var(--card);
     border: 1px solid rgba(0,255,136,0.2);
-    border-bottom: none;
     max-width: 680px;
     width: 100%;
     max-height: 85vh;
@@ -481,12 +480,13 @@
     padding: 28px;
     padding-bottom: calc(28px + var(--safe-bottom));
     position: relative;
-    transform: translateY(100%);
-    transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
-    border-radius: 16px 16px 0 0;
+    transform: scale(0.95);
+    opacity: 0;
+    transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.3s;
+    border-radius: 12px;
   }
 
-  .modal-overlay.open .modal { transform: translateY(0); }
+  .modal-overlay.open .modal { transform: scale(1); opacity: 1; }
 
   .modal-handle {
     width: 36px;
@@ -783,17 +783,7 @@
       padding-top: calc(14px + var(--safe-top));
     }
     .container { padding: 24px 40px; max-width: 900px; }
-    .modal {
-      align-self: center;
-      border-radius: 12px;
-      border-bottom: 1px solid rgba(0,255,136,0.2);
-      max-height: 80vh;
-    }
-    .modal-overlay {
-      align-items: center;
-      padding: 20px;
-    }
-    .modal-handle { display: none; }
+    .modal { max-height: 80vh; }
   }
 
   /* Mobile responsive */
