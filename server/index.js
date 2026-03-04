@@ -71,7 +71,7 @@ featured=true зөвхөн 2-т. url хэвээр хадгал.`;
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.5,
-          maxOutputTokens: 8192,
+          maxOutputTokens: 16384,
           responseMimeType: 'application/json',
         },
       }),
@@ -115,7 +115,7 @@ async function fetchGoogleArticles() {
   const feed = await rssParser.parseURL(
     'https://news.google.com/rss/search?q=artificial+intelligence&hl=en-US&gl=US&ceid=US:en'
   );
-  return feed.items.slice(0, 8).map(item => {
+  return feed.items.slice(0, 6).map(item => {
     const parts = (item.title || '').split(' - ');
     const source = parts.length > 1 ? parts.pop().trim() : 'Google News';
     const title = parts.join(' - ').trim();
@@ -135,7 +135,7 @@ async function fetchNewsapiArticles() {
     throw new Error(err.message || `NewsAPI алдаа: ${response.status}`);
   }
   const data = await response.json();
-  return (data.articles || []).slice(0, 8).map(a => ({
+  return (data.articles || []).slice(0, 6).map(a => ({
     title: a.title || '', summary: a.description || '', source: a.source?.name || '', url: a.url || '', published: a.publishedAt || '',
   }));
 }
@@ -151,7 +151,7 @@ async function fetchGnewsArticles() {
     throw new Error(err.errors?.[0] || `GNews алдаа: ${response.status}`);
   }
   const data = await response.json();
-  return (data.articles || []).slice(0, 8).map(a => ({
+  return (data.articles || []).slice(0, 6).map(a => ({
     title: a.title || '', summary: a.description || '', source: a.source?.name || '', url: a.url || '', published: a.publishedAt || '',
   }));
 }
