@@ -170,38 +170,37 @@ app.post('/api/news/newsapi', async (req, res) => {
   }
 });
 
-// ── 3. Bing News Search ──────────────────────────────────────────
-app.post('/api/news/bing', async (req, res) => {
-  const apiKey = process.env.BING_NEWS_KEY;
+// ── 3. GNews ─────────────────────────────────────────────────────
+app.post('/api/news/gnews', async (req, res) => {
+  const apiKey = process.env.GNEWS_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'BING_NEWS_KEY тохируулаагүй байна' });
+    return res.status(500).json({ error: 'GNEWS_KEY тохируулаагүй байна' });
   }
 
   try {
     const response = await fetch(
-      'https://api.bing.microsoft.com/v7.0/news/search?q=artificial+intelligence&count=10&mkt=en-US',
-      { headers: { 'Ocp-Apim-Subscription-Key': apiKey } }
+      `https://gnews.io/api/v4/search?q=artificial+intelligence&lang=en&max=8&apikey=${apiKey}`
     );
 
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
-      throw new Error(err.message || `Bing News алдаа: ${response.status}`);
+      throw new Error(err.errors?.[0] || `GNews алдаа: ${response.status}`);
     }
 
     const data = await response.json();
-    const articles = (data.value || []).slice(0, 8).map(a => ({
-      title: a.name || '',
+    const articles = (data.articles || []).slice(0, 8).map(a => ({
+      title: a.title || '',
       summary: a.description || '',
-      source: a.provider?.[0]?.name || '',
+      source: a.source?.name || '',
       url: a.url || '',
-      published: a.datePublished || '',
+      published: a.publishedAt || '',
     }));
 
     const result = await translateWithGemini(articles);
     res.json(result);
   } catch (err) {
-    console.error('Bing News error:', err.message);
-    res.status(500).json({ error: `Bing News алдаа: ${err.message}` });
+    console.error('GNews error:', err.message);
+    res.status(500).json({ error: `GNews алдаа: ${err.message}` });
   }
 });
 
