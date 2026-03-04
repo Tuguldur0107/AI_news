@@ -769,12 +769,6 @@
   .ai-btn-gemini .ai-btn-icon { background: linear-gradient(135deg, #4285f4, #7c3aed); color: #fff; }
   .ai-btn-gemini:hover { border-color: #4285f4; background: rgba(66,133,244,0.1); }
 
-  @media (max-width: 480px) {
-    .ai-btn { font-size: 11px; padding: 10px 12px; }
-    .ai-btn span { display: inline; }
-    .ai-btn-icon { width: 24px; height: 24px; font-size: 12px; }
-  }
-
   /* Scroll hint for modal */
   .modal-scroll-hint {
     text-align: center;
@@ -968,11 +962,6 @@
 
   .scroll-top:active { transform: scale(0.9); }
 
-  /* Mobile bottom navigation */
-  .bottom-nav {
-    display: none;
-  }
-
   /* Desktop responsive */
   @media (min-width: 769px) {
     .container { padding: 24px 48px; }
@@ -987,113 +976,13 @@
     .news-grid { grid-template-columns: repeat(3, 1fr); }
   }
 
-  /* Mobile responsive */
+  /* Mobile responsive — only layout sizing changes */
   @media (max-width: 768px) {
     .news-grid { grid-template-columns: 1fr; gap: 12px; }
     .news-card.featured { grid-column: span 1; }
-    .news-card.featured .card-title { font-size: 16px; }
     .news-card { padding: 16px; }
     .logo-text { font-size: 15px; letter-spacing: 3px; }
-    .controls { gap: 8px; }
     .fetch-btn { padding: 10px 18px; font-size: 12px; }
-
-    /* Source tabs: hide on mobile, use bottom nav instead */
-    .source-tabs { display: none; }
-
-    /* Bottom nav for mobile */
-    .bottom-nav {
-      display: flex;
-      position: fixed;
-      bottom: 0;
-      left: 0; right: 0;
-      background: var(--surface);
-      border-top: 1px solid var(--border);
-      z-index: 90;
-      padding-bottom: var(--safe-bottom);
-    }
-
-    .bottom-nav-item {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 3px;
-      padding: 10px 4px;
-      background: none;
-      border: none;
-      color: var(--muted);
-      font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-      font-size: 9px;
-      letter-spacing: 0.5px;
-      cursor: pointer;
-      transition: color 0.2s;
-      -webkit-tap-highlight-color: transparent;
-      position: relative;
-    }
-
-    .bottom-nav-item.active {
-      color: var(--accent);
-    }
-
-    .bottom-nav-item.active::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 20%; right: 20%;
-      height: 2px;
-      background: var(--accent);
-      border-radius: 0 0 2px 2px;
-    }
-
-    .bottom-nav-icon {
-      font-size: 16px;
-      line-height: 1;
-    }
-
-    .bottom-nav-count {
-      font-size: 8px;
-      opacity: 0.6;
-    }
-
-    /* Add padding for bottom nav */
-    .container {
-      padding-bottom: calc(70px + var(--safe-bottom));
-    }
-
-    .scroll-top {
-      bottom: calc(70px + var(--safe-bottom));
-    }
-  }
-
-  @media (max-width: 380px) {
-    .settings-btn { padding: 8px; font-size: 14px; }
-  }
-
-  /* Sticky toolbar on mobile */
-  @media (max-width: 768px) {
-    .sticky-toolbar {
-      position: sticky;
-      top: 0;
-      z-index: 40;
-      background: var(--bg);
-      padding: 8px 0 12px;
-      margin: 0 -16px;
-      padding-left: 16px;
-      padding-right: 16px;
-      border-bottom: 1px solid transparent;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-
-    .sticky-toolbar.scrolled {
-      border-bottom-color: var(--border);
-      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-    }
-  }
-
-  @media (min-width: 769px) {
-    .sticky-toolbar {
-      /* Not sticky on desktop */
-    }
   }
 </style>
 </head>
@@ -1183,24 +1072,6 @@
 </div>
 
 <!-- Bottom nav (mobile) -->
-<div class="bottom-nav" id="bottomNav">
-  <button class="bottom-nav-item active" onclick="setTab('google')">
-    <span class="bottom-nav-icon">G</span>
-    Google
-    <span class="bottom-nav-count" id="bnCountGoogle"></span>
-  </button>
-  <button class="bottom-nav-item" onclick="setTab('newsapi')">
-    <span class="bottom-nav-icon">N</span>
-    NewsAPI
-    <span class="bottom-nav-count" id="bnCountNewsapi"></span>
-  </button>
-  <button class="bottom-nav-item" onclick="setTab('gnews')">
-    <span class="bottom-nav-icon">G</span>
-    GNews
-    <span class="bottom-nav-count" id="bnCountGnews"></span>
-  </button>
-</div>
-
 <!-- Scroll to top -->
 <button class="scroll-top" id="scrollTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
 
@@ -1533,11 +1404,6 @@ function setTab(tab) {
   const desktopTab = document.querySelector(`.source-tab[onclick="setTab('${tab}')"]`);
   if (desktopTab) desktopTab.classList.add('active');
 
-  // Update bottom nav
-  document.querySelectorAll('.bottom-nav-item').forEach(t => t.classList.remove('active'));
-  const mobileTab = document.querySelector(`.bottom-nav-item[onclick="setTab('${tab}')"]`);
-  if (mobileTab) mobileTab.classList.add('active');
-
   // Switch to this tab's cached data
   allNews = allSourceData[activeTab] || [];
   if (allNews.length) {
@@ -1639,7 +1505,7 @@ function openSource(id) {
 }
 
 function openAI(platform, id) {
-  const item = allNews.find(n => n.id === id);
+  const item = allNews.find(n => Number(n.id) === Number(id));
   if (!item) return;
 
   const prompt = `Энэ AI мэдээний талаар дэлгэрүүлж ярилцъя:\n\n"${item.title}"\n\n${item.detail}\n\nЭх сурвалж: ${item.source}`;
@@ -1716,8 +1582,6 @@ function updateTabCounts() {
     const text = count > 0 ? `(${count})` : '';
     const tabEl = document.getElementById(`tabCount${label}`);
     if (tabEl) tabEl.textContent = text;
-    const bnEl = document.getElementById(`bnCount${label}`);
-    if (bnEl) bnEl.textContent = count > 0 ? count : '';
   }
 }
 
@@ -1767,13 +1631,16 @@ document.addEventListener('keydown', e => {
 
 // Swipe down to close modal on mobile
 let modalTouchStart = 0;
-document.getElementById('modalContent').addEventListener('touchstart', (e) => {
+let modalScrollAtStart = 0;
+const modalEl = document.getElementById('modalContent');
+modalEl.addEventListener('touchstart', (e) => {
   modalTouchStart = e.touches[0].clientY;
+  modalScrollAtStart = modalEl.scrollTop;
 }, { passive: true });
 
-document.getElementById('modalContent').addEventListener('touchend', (e) => {
+modalEl.addEventListener('touchend', (e) => {
   const dy = e.changedTouches[0].clientY - modalTouchStart;
-  if (dy > 80) {
+  if (dy > 80 && modalScrollAtStart <= 0) {
     document.getElementById('modalOverlay').classList.remove('open');
     document.body.style.overflow = '';
   }
