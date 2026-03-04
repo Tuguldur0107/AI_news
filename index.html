@@ -62,15 +62,7 @@
     z-index: 0;
   }
 
-  .scanline {
-    position: fixed;
-    inset: 0;
-    background: linear-gradient(transparent 50%, rgba(0,255,136,0.015) 50%);
-    background-size: 100% 4px;
-    pointer-events: none;
-    z-index: 0;
-    overflow: hidden;
-  }
+  .scanline { display: none; }
 
 
   /* Header */
@@ -891,8 +883,8 @@
 
   <div class="settings-group">
     <div class="settings-label">API SERVER URL</div>
-    <input class="settings-input" id="apiUrl" type="url" placeholder="https://your-app.railway.app">
-    <div class="settings-note">Railway дээрх серверийн хаяг</div>
+    <input class="settings-input" id="apiUrl" type="url" placeholder="https://ainews-production-9c46.up.railway.app">
+    <div class="settings-note">Анхдагч: ainews-production-9c46.up.railway.app</div>
   </div>
 
   <div class="settings-group">
@@ -979,8 +971,10 @@ const CATEGORY_LABELS = {
 };
 
 // Load settings
+const DEFAULT_API_URL = 'https://ainews-production-9c46.up.railway.app';
+
 function getApiUrl() {
-  return localStorage.getItem(API_URL_KEY) || '';
+  return localStorage.getItem(API_URL_KEY) || DEFAULT_API_URL;
 }
 
 function getRefreshInterval() {
