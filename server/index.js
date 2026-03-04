@@ -96,15 +96,26 @@ ${articleList}
   }
 
   const rawText = await response.text();
-  const data = JSON.parse(rawText);
+  let data;
+  try { data = JSON.parse(rawText); } catch(e) {
+    console.error('Gemini raw:', rawText.slice(0, 300));
+    throw new Error('Gemini хариуг parse хийж чадсангүй');
+  }
+
   const candidate = data.candidates?.[0];
   if (!candidate?.content?.parts?.[0]?.text) {
+    console.error('Gemini response:', JSON.stringify(data).slice(0, 300));
     throw new Error('Gemini хариу хоосон');
   }
 
   const text = candidate.content.parts[0].text;
   const clean = text.replace(/```json|```/g, '').trim();
-  return JSON.parse(clean);
+  try {
+    return JSON.parse(clean);
+  } catch(e) {
+    console.error('Gemini JSON parse fail:', clean.slice(0, 300));
+    throw new Error('Gemini JSON формат буруу');
+  }
 }
 
 // ── Helper: time ago from date ───────────────────────────────────
@@ -124,13 +135,19 @@ app.post('/api/news/google', async (req, res) => {
       'https://news.google.com/rss/search?q=artificial+intelligence&hl=en-US&gl=US&ceid=US:en'
     );
 
-    const articles = feed.items.slice(0, 10).map(item => ({
-      title: item.title || '',
-      summary: item.contentSnippet || item.content || '',
-      source: item.creator || item.source?.name || 'Google News',
-      url: item.link || '',
-      published: item.pubDate || '',
-    }));
+    const articles = feed.items.slice(0, 10).map(item => {
+      // Google News includes source in title: "Title - Source Name"
+      const parts = (item.title || '').split(' - ');
+      const source = parts.length > 1 ? parts.pop().trim() : 'Google News';
+      const title = parts.join(' - ').trim();
+      return {
+        title,
+        summary: item.contentSnippet || item.content || title,
+        source,
+        url: item.link || '',
+        published: item.pubDate || '',
+      };
+    });
 
     const result = await translateWithGemini(articles);
     res.json(result);
