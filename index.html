@@ -1306,6 +1306,11 @@ function init() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
+
+  // Auto-fetch from server on page load (server returns cached data fast)
+  if (navigator.onLine) {
+    fetchNews();
+  }
 }
 
 function setupAutoRefresh() {
