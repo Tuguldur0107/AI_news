@@ -135,6 +135,44 @@
     padding: 12px 0;
   }
 
+  /* Source tabs */
+  .source-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .source-tab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    padding: 12px 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+  }
+
+  .source-tab + .source-tab {
+    border-left: 1px solid var(--border);
+  }
+
+  .source-tab:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+
+  .source-tab.active {
+    color: #000;
+    background: var(--accent);
+  }
+
   /* Controls */
   .controls {
     display: flex;
@@ -845,6 +883,12 @@
     <button class="settings-btn" onclick="toggleSettings()">⚙</button>
   </div>
 
+  <div class="source-tabs">
+    <button class="source-tab active" onclick="setTab('google')">Google News</button>
+    <button class="source-tab" onclick="setTab('newsapi')">NewsAPI</button>
+    <button class="source-tab" onclick="setTab('bing')">Bing News</button>
+  </div>
+
   <div class="controls">
     <button class="fetch-btn" id="fetchBtn" onclick="fetchNews()">
       ▶ МЭДЭЭ ТАТАХ
@@ -888,6 +932,7 @@ let allNews = [];
 let currentFilter = 'all';
 let isLoading = false;
 let autoRefreshTimer = null;
+let activeTab = 'google';
 
 function esc(str) {
   const d = document.createElement('div');
@@ -895,8 +940,8 @@ function esc(str) {
   return d.innerHTML;
 }
 
-const CACHE_KEY = 'ai-pulse-news';
-const CACHE_TIME_KEY = 'ai-pulse-news-time';
+function getCacheKey() { return `ai-pulse-news-${activeTab}`; }
+function getCacheTimeKey() { return `ai-pulse-news-time-${activeTab}`; }
 const API_URL_KEY = 'ai-pulse-api-url';
 const REFRESH_KEY = 'ai-pulse-refresh';
 
@@ -933,7 +978,7 @@ function init() {
   document.getElementById('refreshInterval').value = getRefreshInterval();
 
   // Load cached news
-  const cached = localStorage.getItem(CACHE_KEY);
+  const cached = localStorage.getItem(getCacheKey());
   if (cached) {
     try {
       allNews = JSON.parse(cached);
@@ -1053,7 +1098,8 @@ async function fetchNews() {
   `;
 
   try {
-    const response = await fetch(`${apiUrl}/api/news`, {
+    const endpoint = `/api/news/${activeTab}`;
+    const response = await fetch(`${apiUrl}${endpoint}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -1064,8 +1110,8 @@ async function fetchNews() {
     allNews = data.news;
 
     // Cache to localStorage
-    localStorage.setItem(CACHE_KEY, JSON.stringify(allNews));
-    localStorage.setItem(CACHE_TIME_KEY, new Date().toISOString());
+    localStorage.setItem(getCacheKey(), JSON.stringify(allNews));
+    localStorage.setItem(getCacheTimeKey(), new Date().toISOString());
 
     renderNews(allNews);
     updateStats(false);
@@ -1077,7 +1123,7 @@ async function fetchNews() {
     errorMsg.classList.add('visible');
 
     // Fall back to cache
-    const cached = localStorage.getItem(CACHE_KEY);
+    const cached = localStorage.getItem(getCacheKey());
     if (cached) {
       allNews = JSON.parse(cached);
       renderNews(allNews);
@@ -1148,12 +1194,36 @@ function updateStats(fromCache) {
 
   let timeText = new Date().toLocaleTimeString('mn-MN', { hour: '2-digit', minute: '2-digit' });
   if (fromCache) {
-    const cachedTime = localStorage.getItem(CACHE_TIME_KEY);
+    const cachedTime = localStorage.getItem(getCacheTimeKey());
     if (cachedTime) {
       timeText = new Date(cachedTime).toLocaleTimeString('mn-MN', { hour: '2-digit', minute: '2-digit' });
     }
   }
   document.getElementById('statTime').innerHTML = timeText + (fromCache ? '<span class="cache-badge">КЭШ</span>' : '');
+}
+
+function setTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.source-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.source-tab[onclick="setTab('${tab}')"]`).classList.add('active');
+
+  // Load from cache or fetch
+  const cached = localStorage.getItem(getCacheKey());
+  if (cached) {
+    allNews = JSON.parse(cached);
+    renderNews(allNews);
+    updateStats(true);
+    updateCacheInfo();
+  } else {
+    allNews = [];
+    document.getElementById('newsContainer').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">◈</div>
+        <div class="empty-text">МЭДЭЭ ТАТАХ товч дарна уу</div>
+      </div>
+    `;
+    document.getElementById('statsBar').style.display = 'none';
+  }
 }
 
 function setFilter(el, topic) {
@@ -1204,10 +1274,14 @@ function openModal(id) {
 }
 
 function openSource(id) {
-  const item = allNews.find(n => n.id === id);
+  const item = allNews.find(n => Number(n.id) === Number(id));
   if (!item) return;
-  const query = encodeURIComponent(`${item.title} ${item.source}`);
-  window.open(`https://www.google.com/search?q=${query}`, '_blank');
+  if (item.url) {
+    window.open(item.url, '_blank');
+  } else {
+    const query = encodeURIComponent(`${item.title} ${item.source}`);
+    window.open(`https://www.google.com/search?q=${query}`, '_blank');
+  }
 }
 
 function openAI(platform, id) {
@@ -1248,8 +1322,8 @@ function toggleSettings() {
 }
 
 function clearCache() {
-  localStorage.removeItem(CACHE_KEY);
-  localStorage.removeItem(CACHE_TIME_KEY);
+  localStorage.removeItem(getCacheKey());
+  localStorage.removeItem(getCacheTimeKey());
   updateCacheInfo();
   allNews = [];
   document.getElementById('newsContainer').innerHTML = `
@@ -1263,8 +1337,8 @@ function clearCache() {
 }
 
 function updateCacheInfo() {
-  const cached = localStorage.getItem(CACHE_KEY);
-  const time = localStorage.getItem(CACHE_TIME_KEY);
+  const cached = localStorage.getItem(getCacheKey());
+  const time = localStorage.getItem(getCacheTimeKey());
   const info = document.getElementById('cacheInfo');
   if (cached && time) {
     const count = JSON.parse(cached).length;
