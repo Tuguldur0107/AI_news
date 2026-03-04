@@ -60,30 +60,47 @@ app.post('/api/news', async (req, res) => {
 
 Чухал: featured=true нь зөвхөн 2 хамгийн чухал мэдээнд тохирно. Бодит, сүүлийн үеийн AI мэдээг багтаа.`;
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
+
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 4096,
+            maxOutputTokens: 8192,
             responseMimeType: 'application/json',
+          },
+          thinkingConfig: {
+            thinkingBudget: 0,
           },
         }),
       }
     );
 
+    clearTimeout(timeout);
+
     if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
+      const errText = await response.text();
+      let errMsg;
+      try { errMsg = JSON.parse(errText).error?.message; } catch(e) { errMsg = errText; }
       return res.status(response.status).json({
-        error: errData.error?.message || `Gemini API алдаа: ${response.status}`
+        error: errMsg || `Gemini API алдаа: ${response.status}`
       });
     }
 
-    const data = await response.json();
+    const rawText = await response.text();
+    let data;
+    try { data = JSON.parse(rawText); } catch(e) {
+      console.error('Raw response:', rawText.slice(0, 500));
+      throw new Error('Gemini хариуг JSON болгож чадсангүй');
+    }
+
     const text = data.candidates[0].content.parts[0].text;
     const clean = text.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(clean);
