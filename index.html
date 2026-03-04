@@ -398,47 +398,34 @@
 
   /* Pulse wave SVG animation */
   .pulse-wave {
-    width: 280px;
-    height: 60px;
-  }
-
-  .pulse-wave path {
-    fill: none;
-    stroke: var(--accent);
-    stroke-width: 2;
-    stroke-linecap: round;
-    filter: drop-shadow(0 0 6px rgba(0,255,136,0.5));
+    width: 240px;
+    height: 50px;
   }
 
   .pulse-line {
-    stroke-dasharray: 600;
-    stroke-dashoffset: 600;
-    animation: pulse-draw 2s ease-in-out infinite;
-  }
-
-  .pulse-glow-line {
-    stroke: var(--accent);
-    stroke-width: 4;
-    opacity: 0.15;
-    stroke-dasharray: 600;
-    stroke-dashoffset: 600;
+    fill: none;
+    stroke: #00ff88;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-dasharray: 500;
+    stroke-dashoffset: 500;
     animation: pulse-draw 2s ease-in-out infinite;
   }
 
   @keyframes pulse-draw {
-    0% { stroke-dashoffset: 600; }
+    0% { stroke-dashoffset: 500; }
     50% { stroke-dashoffset: 0; }
-    100% { stroke-dashoffset: -600; }
+    100% { stroke-dashoffset: -500; }
   }
 
   .pulse-dot {
-    fill: var(--accent);
+    fill: #00ff88;
     animation: pulse-dot-anim 2s ease-in-out infinite;
   }
 
   @keyframes pulse-dot-anim {
-    0%, 100% { opacity: 0; r: 3; }
-    45%, 55% { opacity: 1; r: 5; }
+    0%, 100% { opacity: 0; }
+    45%, 55% { opacity: 1; }
   }
 
   .loading-text {
@@ -1102,10 +1089,9 @@ async function fetchNews() {
   document.getElementById('newsContainer').innerHTML = `
     <div class="loading">
       <div class="loading-text">// AI МЭДЭЭ ЦУГЛУУЛЖ БАЙНА</div>
-      <svg class="pulse-wave" viewBox="0 0 280 60">
-        <path class="pulse-glow-line" d="M0,30 L60,30 L80,30 L95,8 L110,52 L125,20 L135,38 L145,30 L200,30 L280,30" />
-        <path class="pulse-line" d="M0,30 L60,30 L80,30 L95,8 L110,52 L125,20 L135,38 L145,30 L200,30 L280,30" />
-        <circle class="pulse-dot" cx="110" cy="30" r="4" />
+      <svg class="pulse-wave" viewBox="0 0 240 50">
+        <path class="pulse-line" d="M0,25 L50,25 L70,25 L82,6 L95,44 L108,16 L116,34 L124,25 L170,25 L240,25" />
+        <circle class="pulse-dot" cx="95" cy="25" r="3" />
       </svg>
       <div class="loading-text" style="opacity:0.5">AI PULSE — PROCESSING...</div>
     </div>
