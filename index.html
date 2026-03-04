@@ -104,31 +104,6 @@
     color: var(--accent);
   }
 
-  .status-dot {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-family: 'Space Mono', monospace;
-    font-size: 10px;
-    color: var(--muted);
-  }
-
-  .dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--accent);
-    animation: blink 1.5s ease-in-out infinite;
-    flex-shrink: 0;
-  }
-
-  .dot.offline { background: var(--accent2); animation: none; }
-  .dot.loading { background: var(--accent3); }
-
-  @keyframes blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.2; }
-  }
 
   /* Main layout */
   .container {
@@ -803,7 +778,6 @@
     .news-card.featured .card-title { font-size: 16px; }
     .stats-bar { gap: 16px; flex-wrap: wrap; }
     .logo-text { font-size: 15px; letter-spacing: 3px; }
-    .status-dot span { display: none; }
     .controls { gap: 8px; }
     .fetch-btn { padding: 10px 18px; font-size: 12px; }
   }
@@ -852,13 +826,7 @@
         <div class="logo-text">AI PULSE</div>
       </div>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <div class="status-dot">
-        <div class="dot" id="statusDot"></div>
-        <span id="statusText">БЭЛЭН</span>
-      </div>
-      <button class="settings-btn" onclick="toggleSettings()">⚙</button>
-    </div>
+    <button class="settings-btn" onclick="toggleSettings()">⚙</button>
   </div>
 
   <div class="controls">
@@ -994,12 +962,8 @@ function setupOnlineStatus() {
   const update = () => {
     if (!navigator.onLine) {
       banner.classList.add('visible');
-      document.getElementById('statusDot').className = 'dot offline';
-      document.getElementById('statusText').textContent = 'ОФЛАЙН';
     } else {
       banner.classList.remove('visible');
-      document.getElementById('statusDot').className = 'dot';
-      document.getElementById('statusText').textContent = 'БЭЛЭН';
     }
   };
   window.addEventListener('online', update);
@@ -1055,14 +1019,10 @@ async function fetchNews() {
 
   isLoading = true;
   const btn = document.getElementById('fetchBtn');
-  const dot = document.getElementById('statusDot');
-  const statusText = document.getElementById('statusText');
   const errorMsg = document.getElementById('errorMsg');
 
   btn.disabled = true;
   btn.textContent = '⟳ ТАТАЖ БАЙНА...';
-  dot.className = 'dot loading';
-  statusText.textContent = 'АЧААЛЛАЖ БАЙНА';
   errorMsg.classList.remove('visible');
 
   document.getElementById('newsContainer').innerHTML = `
@@ -1095,15 +1055,10 @@ async function fetchNews() {
     updateStats(false);
     updateCacheInfo();
 
-    dot.className = 'dot';
-    statusText.textContent = 'ШИНЭЧЛЭГДСЭН';
-
   } catch (err) {
     console.error(err);
     errorMsg.textContent = `⚠ АЛДАА: ${err.message}`;
     errorMsg.classList.add('visible');
-    dot.className = 'dot offline';
-    statusText.textContent = 'АЛДАА';
 
     // Fall back to cache
     const cached = localStorage.getItem(CACHE_KEY);
