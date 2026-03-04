@@ -531,9 +531,29 @@
   }
 
   /* AI chat buttons */
+  .source-btn {
+    display: block;
+    width: 100%;
+    margin-top: 16px;
+    padding: 12px;
+    background: rgba(0,255,136,0.08);
+    border: 1px solid rgba(0,255,136,0.25);
+    border-radius: 8px;
+    color: var(--accent);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .source-btn:hover { background: rgba(0,255,136,0.15); }
+  .source-btn:active { transform: scale(0.98); }
+
   .ai-buttons {
-    margin-top: 20px;
-    padding-top: 20px;
+    margin-top: 16px;
+    padding-top: 16px;
     border-top: 1px solid var(--border);
   }
 
@@ -1170,6 +1190,7 @@ function openModal(id) {
       <div style="margin-top:8px">ЧУХЛЫН ЗЭРЭГ: ${Number(item.importance)}/10</div>
       <div>${esc(item.timeAgo)}</div>
     </div>
+    <button class="source-btn" onclick="openSource(${safeId})">🔗 ЭХ МЭДЭЭГ УНШИХ</button>
     <div class="ai-buttons">
       <div class="ai-buttons-label">AI-тай дэлгэрүүлж ярилцах</div>
       <div class="ai-buttons-row">
@@ -1190,6 +1211,13 @@ function openModal(id) {
   `;
   document.getElementById('modalOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
+}
+
+function openSource(id) {
+  const item = allNews.find(n => n.id === id);
+  if (!item) return;
+  const query = encodeURIComponent(`${item.title} ${item.source}`);
+  window.open(`https://www.google.com/search?q=${query}`, '_blank');
 }
 
 function openAI(platform, id) {
