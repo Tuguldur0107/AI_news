@@ -259,13 +259,13 @@
   .news-card {
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 18px;
+    border-radius: 12px;
+    padding: 20px;
     position: relative;
     overflow: hidden;
     animation: fadeInUp 0.4s ease forwards;
     opacity: 0;
-    transition: border-color 0.2s, transform 0.2s;
+    transition: border-color 0.3s, transform 0.2s, box-shadow 0.3s;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
@@ -276,20 +276,20 @@
   .news-card::before {
     content: '';
     position: absolute;
-    top: 0; left: 0;
-    width: 3px;
-    height: 100%;
-    background: var(--accent);
-    transform: scaleY(0);
-    transform-origin: top;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent3));
+    transform: scaleX(0);
+    transform-origin: left;
     transition: transform 0.3s;
-    border-radius: 10px 0 0 10px;
+    border-radius: 12px 12px 0 0;
   }
 
-  .news-card:hover::before { transform: scaleY(1); }
+  .news-card:hover::before { transform: scaleX(1); }
   .news-card:hover {
-    border-color: rgba(0,255,136,0.3);
-    transform: translateY(-2px);
+    border-color: rgba(0,255,136,0.25);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 32px rgba(0,255,136,0.08), 0 0 0 1px rgba(0,255,136,0.1);
   }
 
   .news-card:active {
@@ -299,6 +299,7 @@
   .news-card.featured {
     grid-column: span 2;
     border-color: rgba(0,255,136,0.2);
+    background: linear-gradient(135deg, var(--card) 0%, rgba(0,255,136,0.03) 100%);
   }
 
   @keyframes fadeInUp {
@@ -348,8 +349,18 @@
     font-size: 13px;
     color: var(--muted);
     line-height: 1.6;
-    margin-bottom: 14px;
+    margin-bottom: 0;
     flex: 1;
+  }
+
+  .card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.04);
   }
 
   .card-source {
@@ -359,23 +370,44 @@
     font-family: 'Space Mono', monospace;
     font-size: 10px;
     color: var(--muted);
+    min-width: 0;
+    overflow: hidden;
   }
 
-  .source-dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--accent);
+  .source-favicon {
+    width: 14px; height: 14px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    background: var(--border);
+  }
+
+  .card-importance-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
     flex-shrink: 0;
   }
 
-  .card-importance {
-    position: absolute;
-    top: 14px;
-    right: 14px;
+  .importance-dots {
+    display: flex;
+    gap: 2px;
+  }
+
+  .importance-dot {
+    width: 4px; height: 10px;
+    border-radius: 1px;
+    background: var(--border);
+    transition: background 0.2s;
+  }
+
+  .importance-dot.filled { background: var(--accent); }
+  .importance-dot.filled.high { background: var(--accent2); }
+
+  .importance-label {
     font-family: 'Space Mono', monospace;
-    font-size: 16px;
-    font-weight: 700;
-    opacity: 0.15;
+    font-size: 9px;
+    color: var(--muted);
+    opacity: 0.6;
   }
 
   /* Loading state */
@@ -556,27 +588,101 @@
     color: var(--accent2);
   }
 
-  .modal-category { margin-bottom: 12px; }
-  .modal-title { font-size: 22px; font-weight: 800; margin-bottom: 16px; line-height: 1.3; padding-right: 40px; }
-  .modal-detail { font-size: 14px; color: var(--muted); line-height: 1.8; user-select: text; -webkit-user-select: text; }
-  .modal-source {
-    margin-top: 24px;
-    padding-top: 16px;
-    border-top: 1px solid var(--border);
-    font-family: 'Space Mono', monospace;
-    font-size: 11px;
-    color: var(--muted);
+  .modal-header-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
   }
 
-  /* AI chat buttons */
-  .source-btn {
-    display: block;
-    width: 100%;
+  .modal-time {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+
+  .modal-title {
+    font-size: 22px;
+    font-weight: 800;
+    margin-bottom: 20px;
+    line-height: 1.3;
+    padding-right: 40px;
+  }
+
+  .modal-detail {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.8;
+    user-select: text;
+    -webkit-user-select: text;
+    padding: 16px 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .modal-info-tags {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
     margin-top: 16px;
-    padding: 12px;
+    padding: 12px 0;
+  }
+
+  .modal-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    padding: 5px 10px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+  }
+
+  .modal-tag-source {
     background: rgba(0,255,136,0.08);
-    border: 1px solid rgba(0,255,136,0.25);
-    border-radius: 8px;
+    border: 1px solid rgba(0,255,136,0.2);
+    color: var(--accent);
+  }
+
+  .modal-tag-source img {
+    width: 14px; height: 14px;
+    border-radius: 3px;
+  }
+
+  .modal-tag-importance {
+    background: rgba(123,97,255,0.1);
+    border: 1px solid rgba(123,97,255,0.25);
+    color: var(--accent3);
+  }
+
+  .modal-tag-importance.high {
+    background: rgba(255,51,102,0.1);
+    border: 1px solid rgba(255,51,102,0.25);
+    color: var(--accent2);
+  }
+
+  /* Action buttons in modal */
+  .modal-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .source-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, rgba(0,255,136,0.1), rgba(0,255,136,0.05));
+    border: 1px solid rgba(0,255,136,0.3);
+    border-radius: 10px;
     color: var(--accent);
     font-family: 'Space Mono', monospace;
     font-size: 12px;
@@ -586,11 +692,11 @@
     transition: all 0.2s;
     -webkit-tap-highlight-color: transparent;
   }
-  .source-btn:hover { background: rgba(0,255,136,0.15); }
+  .source-btn:hover { background: linear-gradient(135deg, rgba(0,255,136,0.18), rgba(0,255,136,0.08)); box-shadow: 0 4px 16px rgba(0,255,136,0.15); }
   .source-btn:active { transform: scale(0.98); }
 
   .ai-buttons {
-    margin-top: 16px;
+    margin-top: 12px;
     padding-top: 16px;
     border-top: 1px solid var(--border);
   }
@@ -606,7 +712,7 @@
 
   .ai-buttons-row {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
   }
 
@@ -614,15 +720,15 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 18px;
+    padding: 11px 16px;
     border: 1px solid var(--border);
-    background: rgba(255,255,255,0.03);
+    background: rgba(255,255,255,0.02);
     color: var(--text);
     font-family: 'Space Mono', monospace;
-    font-size: 12px;
+    font-size: 11px;
     cursor: pointer;
     transition: all 0.2s;
-    border-radius: 8px;
+    border-radius: 10px;
     text-decoration: none;
     -webkit-tap-highlight-color: transparent;
     flex: 1;
@@ -633,9 +739,9 @@
   .ai-btn:active { transform: scale(0.96); }
 
   .ai-btn-icon {
-    width: 20px;
-    height: 20px;
-    border-radius: 5px;
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -644,19 +750,36 @@
     flex-shrink: 0;
   }
 
-  .ai-btn-claude .ai-btn-icon { background: #d97706; color: #fff; }
+  .ai-btn-claude .ai-btn-icon { background: linear-gradient(135deg, #d97706, #f59e0b); color: #fff; }
   .ai-btn-claude:hover { border-color: #d97706; background: rgba(217,119,6,0.1); }
 
-  .ai-btn-chatgpt .ai-btn-icon { background: #10a37f; color: #fff; }
+  .ai-btn-chatgpt .ai-btn-icon { background: linear-gradient(135deg, #10a37f, #34d399); color: #fff; }
   .ai-btn-chatgpt:hover { border-color: #10a37f; background: rgba(16,163,127,0.1); }
 
-  .ai-btn-gemini .ai-btn-icon { background: #4285f4; color: #fff; }
+  .ai-btn-gemini .ai-btn-icon { background: linear-gradient(135deg, #4285f4, #7c3aed); color: #fff; }
   .ai-btn-gemini:hover { border-color: #4285f4; background: rgba(66,133,244,0.1); }
 
   @media (max-width: 480px) {
     .ai-btn { font-size: 11px; padding: 10px 12px; }
     .ai-btn span { display: inline; }
     .ai-btn-icon { width: 24px; height: 24px; font-size: 12px; }
+  }
+
+  /* Scroll hint for modal */
+  .modal-scroll-hint {
+    text-align: center;
+    padding: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    opacity: 0.5;
+    letter-spacing: 1px;
+    animation: scrollHintPulse 2s ease-in-out infinite;
+  }
+
+  @keyframes scrollHintPulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.6; }
   }
 
   /* Settings panel */
@@ -962,6 +1085,16 @@ const CATEGORY_LABELS = {
   'tools': 'ХЭРЭГСЭЛ'
 };
 
+function getFaviconUrl(urlOrSource) {
+  try {
+    if (urlOrSource && urlOrSource.startsWith('http')) {
+      const domain = new URL(urlOrSource).hostname;
+      return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+    }
+  } catch(e) {}
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(urlOrSource)}&sz=32`;
+}
+
 function cleanCategory(cat) {
   if (!cat) return 'tools';
   const first = cat.split('|')[0].trim().toLowerCase();
@@ -1187,21 +1320,35 @@ function renderNews(news) {
     const catClass = CATEGORY_COLORS[cat];
     const catLabel = CATEGORY_LABELS[cat];
     const delay = i * 0.06;
+    const imp = Math.min(10, Math.max(0, Number(item.importance) || 0));
+    const faviconUrl = getFaviconUrl(item.url || item.source);
+
+    // Build importance dots
+    let dots = '';
+    for (let d = 1; d <= 10; d++) {
+      const filled = d <= imp;
+      const high = imp >= 8 && filled;
+      dots += `<div class="importance-dot${filled ? ' filled' : ''}${high ? ' high' : ''}"></div>`;
+    }
 
     return `
       <div class="news-card ${item.featured ? 'featured' : ''}"
            style="animation-delay: ${delay}s"
            onclick="openModal(${Number(item.id)})">
-        <div class="card-importance">${Number(item.importance)}</div>
         <div class="card-meta">
           <span class="card-category ${catClass}">${catLabel}</span>
           <span class="card-time">${esc(item.timeAgo)}</span>
         </div>
         <div class="card-title">${esc(item.title)}</div>
         <div class="card-summary">${esc(item.summary)}</div>
-        <div class="card-source">
-          <div class="source-dot"></div>
-          ${esc(item.source)}
+        <div class="card-footer">
+          <div class="card-source">
+            <img class="source-favicon" src="${faviconUrl}" alt="" onerror="this.style.display='none'">
+            ${esc(item.source)}
+          </div>
+          <div class="card-importance-bar">
+            <div class="importance-dots">${dots}</div>
+          </div>
         </div>
       </div>
     `;
@@ -1262,37 +1409,62 @@ function openModal(id) {
   const catLabel = CATEGORY_LABELS[cat];
   const safeId = Number(item.id);
 
+  const imp = Number(item.importance) || 0;
+  const faviconUrl = getFaviconUrl(item.url || item.source);
+
   document.getElementById('modalBody').innerHTML = `
-    <div class="modal-category"><span class="card-category ${catClass}">${catLabel}</span></div>
+    <div class="modal-header-meta">
+      <span class="card-category ${catClass}">${catLabel}</span>
+      <span class="modal-time">${esc(item.timeAgo)}</span>
+    </div>
     <div class="modal-title">${esc(item.title)}</div>
     <div class="modal-detail">${esc(item.detail)}</div>
-    <div class="modal-source">
-      <div style="margin-bottom:4px">ЭХ СУРВАЛЖ</div>
-      <div style="color: var(--accent)">${esc(item.source)}</div>
-      <div style="margin-top:8px">ЧУХЛЫН ЗЭРЭГ: ${Number(item.importance)}/10</div>
-      <div>${esc(item.timeAgo)}</div>
+    <div class="modal-info-tags">
+      <span class="modal-tag modal-tag-source">
+        <img src="${faviconUrl}" alt="" style="width:14px;height:14px;border-radius:3px" onerror="this.style.display='none'">
+        ${esc(item.source)}
+      </span>
+      <span class="modal-tag ${imp >= 8 ? 'modal-tag-importance high' : 'modal-tag-importance'}">
+        ${imp >= 8 ? '&#9733;' : '&#9670;'} ${imp}/10
+      </span>
     </div>
-    <button class="source-btn" onclick="openSource(${safeId})">🔗 ЭХ МЭДЭЭГ УНШИХ</button>
-    <div class="ai-buttons">
-      <div class="ai-buttons-label">AI-тай дэлгэрүүлж ярилцах</div>
-      <div class="ai-buttons-row">
-        <button class="ai-btn ai-btn-claude" onclick="openAI('claude', ${safeId})">
-          <div class="ai-btn-icon">C</div>
-          <span>Claude</span>
-        </button>
-        <button class="ai-btn ai-btn-chatgpt" onclick="openAI('chatgpt', ${safeId})">
-          <div class="ai-btn-icon">GP</div>
-          <span>ChatGPT</span>
-        </button>
-        <button class="ai-btn ai-btn-gemini" onclick="openAI('gemini', ${safeId})">
-          <div class="ai-btn-icon">Ge</div>
-          <span>Gemini</span>
-        </button>
+    <div class="modal-actions">
+      <button class="source-btn" onclick="openSource(${safeId})">&#8599; ЭХ МЭДЭЭГ УНШИХ</button>
+      <div class="ai-buttons">
+        <div class="ai-buttons-label">AI-тай дэлгэрүүлж ярилцах</div>
+        <div class="ai-buttons-row">
+          <button class="ai-btn ai-btn-claude" onclick="openAI('claude', ${safeId})">
+            <div class="ai-btn-icon">C</div>
+            <span>Claude</span>
+          </button>
+          <button class="ai-btn ai-btn-chatgpt" onclick="openAI('chatgpt', ${safeId})">
+            <div class="ai-btn-icon">G</div>
+            <span>ChatGPT</span>
+          </button>
+          <button class="ai-btn ai-btn-gemini" onclick="openAI('gemini', ${safeId})">
+            <div class="ai-btn-icon">G</div>
+            <span>Gemini</span>
+          </button>
+        </div>
       </div>
     </div>
   `;
   document.getElementById('modalOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
+
+  // Show scroll hint if content overflows
+  requestAnimationFrame(() => {
+    const modal = document.getElementById('modalContent');
+    if (modal.scrollHeight > modal.clientHeight) {
+      const hint = document.createElement('div');
+      hint.className = 'modal-scroll-hint';
+      hint.textContent = '↓ ДООШ ГҮЙЛГЭНЭ ҮҮ';
+      document.getElementById('modalBody').appendChild(hint);
+      modal.addEventListener('scroll', function onScroll() {
+        if (modal.scrollTop > 20) { hint.remove(); modal.removeEventListener('scroll', onScroll); }
+      });
+    }
+  });
 }
 
 function openSource(id) {
