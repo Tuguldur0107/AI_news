@@ -27,9 +27,9 @@ app.get('/health', (req, res) => {
 });
 
 app.post('/api/news', async (req, res) => {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'ANTHROPIC_API_KEY тохируулаагүй байна' });
+    return res.status(500).json({ error: 'GEMINI_API_KEY тохируулаагүй байна' });
   }
 
   try {
@@ -37,19 +37,7 @@ app.post('/api/news', async (req, res) => {
       year: 'numeric', month: 'long', day: 'numeric'
     });
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 4096,
-        messages: [{
-          role: 'user',
-          content: `Та AI мэдээний шинжээч. Өнөөдрийн огноо: ${today}.
+    const prompt = `Та AI мэдээний шинжээч. Өнөөдрийн огноо: ${today}.
 
 Хиймэл оюун ухааны салбарт сүүлийн үеийн хамгийн чухал мэдээ, хөгжлүүдийг жагсаа. Дараах категориудад хамаарах 8-10 мэдээ үүсгэ:
 
@@ -70,20 +58,33 @@ app.post('/api/news', async (req, res) => {
   ]
 }
 
-Чухал: featured=true нь зөвхөн 2 хамгийн чухал мэдээнд тохирно. Бодит, сүүлийн үеийн AI мэдээг багтаа.`
-        }]
-      }),
-    });
+Чухал: featured=true нь зөвхөн 2 хамгийн чухал мэдээнд тохирно. Бодит, сүүлийн үеийн AI мэдээг багтаа.`;
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 4096,
+            responseMimeType: 'application/json',
+          },
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
       return res.status(response.status).json({
-        error: errData.error?.message || `Anthropic API алдаа: ${response.status}`
+        error: errData.error?.message || `Gemini API алдаа: ${response.status}`
       });
     }
 
     const data = await response.json();
-    const text = data.content[0].text;
+    const text = data.candidates[0].content.parts[0].text;
     const clean = text.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(clean);
 
