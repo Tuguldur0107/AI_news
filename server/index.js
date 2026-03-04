@@ -106,7 +106,13 @@ app.post('/api/news', async (req, res) => {
 
     const text = candidate.content.parts[0].text;
     const clean = text.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(clean);
+    let parsed;
+    try {
+      parsed = JSON.parse(clean);
+    } catch (parseErr) {
+      console.error('JSON parse failed. Clean text:', clean.slice(0, 500));
+      return res.status(502).json({ error: 'Gemini хариуг JSON болгож чадсангүй' });
+    }
 
     res.json(parsed);
   } catch (err) {
