@@ -91,8 +91,8 @@ featured=true зөвхөн 2-т. url хэвээр.`;
   try {
     return JSON.parse(clean);
   } catch(e) {
-    console.error('Gemini JSON parse fail:', clean.slice(0, 300));
-    throw new Error('Gemini JSON формат буруу');
+    console.error('Gemini JSON parse fail:', clean.slice(0, 500));
+    throw new Error('Gemini JSON формат буруу: ' + clean.slice(0, 100));
   }
 }
 
