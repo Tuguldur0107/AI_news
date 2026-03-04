@@ -37,7 +37,8 @@ const newsCache = {
 };
 
 function isCacheFresh(source) {
-  return newsCache[source].data && (Date.now() - newsCache[source].timestamp < CACHE_TTL);
+  const cache = newsCache[source];
+  return cache.data && cache.data.news && cache.data.news.length > 0 && (Date.now() - cache.timestamp < CACHE_TTL);
 }
 
 // ── Shared: Gemini translate helper ──────────────────────────────
@@ -166,7 +167,10 @@ async function fetchAndCache(source) {
   try {
     const articles = await fetchers[source]();
     const translated = await translateWithGemini(articles);
-    newsCache[source] = { data: translated, timestamp: Date.now() };
+    // Only cache if we got actual results
+    if (translated?.news?.length > 0) {
+      newsCache[source] = { data: translated, timestamp: Date.now() };
+    }
     return { source, data: translated, cached: false };
   } catch (err) {
     // If fetch fails but old cache exists, return stale cache
