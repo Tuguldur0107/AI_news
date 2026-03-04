@@ -1,12 +1,10 @@
-const CACHE_NAME = 'ai-pulse-v1';
+const CACHE_NAME = 'ai-pulse-v2';
 const STATIC_ASSETS = [
   './index.html',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
 ];
-
-const NEWS_CACHE = 'ai-pulse-news-v1';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -20,7 +18,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((key) => key !== CACHE_NAME && key !== NEWS_CACHE)
+          .filter((key) => key !== CACHE_NAME)
           .map((key) => caches.delete(key))
       )
     )
@@ -29,28 +27,21 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
+  // Skip non-GET requests (POST can't be cached)
+  if (event.request.method !== 'GET') return;
 
-  // API requests: network first, cache fallback
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          const clone = response.clone();
-          caches.open(NEWS_CACHE).then((cache) => cache.put(event.request, clone));
-          return response;
-        })
-        .catch(() => caches.match(event.request))
-    );
-    return;
-  }
+  // Skip cross-origin API requests
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
 
   // Static assets: cache first, network fallback
   event.respondWith(
     caches.match(event.request).then((cached) => {
       return cached || fetch(event.request).then((response) => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
         return response;
       });
     })

@@ -58,7 +58,7 @@
       linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
       linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
     background-size: 40px 40px;
-    background-attachment: fixed;
+    /* background-attachment: scroll for mobile perf */
   }
 
 
@@ -674,7 +674,7 @@
     z-index: 200;
     padding: 24px;
     padding-top: calc(24px + var(--safe-top));
-    transition: right 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -932,6 +932,12 @@ let currentFilter = 'all';
 let isLoading = false;
 let autoRefreshTimer = null;
 
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
 const CACHE_KEY = 'ai-pulse-news';
 const CACHE_TIME_KEY = 'ai-pulse-news-time';
 const API_URL_KEY = 'ai-pulse-api-url';
@@ -1171,17 +1177,17 @@ function renderNews(news) {
     return `
       <div class="news-card ${item.featured ? 'featured' : ''}"
            style="animation-delay: ${delay}s"
-           onclick="openModal(${item.id})">
-        <div class="card-importance">${item.importance}</div>
+           onclick="openModal(${Number(item.id)})">
+        <div class="card-importance">${Number(item.importance)}</div>
         <div class="card-meta">
           <span class="card-category ${catClass}">${catLabel}</span>
-          <span class="card-time">${item.timeAgo}</span>
+          <span class="card-time">${esc(item.timeAgo)}</span>
         </div>
-        <div class="card-title">${item.title}</div>
-        <div class="card-summary">${item.summary}</div>
+        <div class="card-title">${esc(item.title)}</div>
+        <div class="card-summary">${esc(item.summary)}</div>
         <div class="card-source">
           <div class="source-dot"></div>
-          ${item.source}
+          ${esc(item.source)}
         </div>
       </div>
     `;
@@ -1214,36 +1220,37 @@ function setFilter(el, topic) {
 }
 
 function openModal(id) {
-  const item = allNews.find(n => n.id === id);
+  const item = allNews.find(n => Number(n.id) === Number(id));
   if (!item) return;
   const catClass = CATEGORY_COLORS[item.category] || 'cat-tools';
-  const catLabel = CATEGORY_LABELS[item.category] || item.category.toUpperCase();
+  const catLabel = CATEGORY_LABELS[item.category] || esc(item.category).toUpperCase();
+  const safeId = Number(item.id);
 
   document.getElementById('modalBody').innerHTML = `
     <div class="modal-category"><span class="card-category ${catClass}">${catLabel}</span></div>
-    <div class="modal-title">${item.title}</div>
-    <div class="modal-detail">${item.detail}</div>
+    <div class="modal-title">${esc(item.title)}</div>
+    <div class="modal-detail">${esc(item.detail)}</div>
     <div class="modal-source">
       <div style="margin-bottom:4px">ЭХ СУРВАЛЖ</div>
-      <div style="color: var(--accent)">${item.source}</div>
-      <div style="margin-top:8px">ЧУХЛЫН ЗЭРЭГ: ${item.importance}/10</div>
-      <div>${item.timeAgo}</div>
+      <div style="color: var(--accent)">${esc(item.source)}</div>
+      <div style="margin-top:8px">ЧУХЛЫН ЗЭРЭГ: ${Number(item.importance)}/10</div>
+      <div>${esc(item.timeAgo)}</div>
     </div>
     <div class="ai-buttons">
       <div class="ai-buttons-label">AI-тай дэлгэрүүлж ярилцах</div>
       <div class="ai-buttons-row">
-        <a class="ai-btn ai-btn-claude" onclick="openAI('claude', ${item.id})" href="javascript:void(0)">
+        <button class="ai-btn ai-btn-claude" onclick="openAI('claude', ${safeId})">
           <div class="ai-btn-icon">C</div>
           <span>Claude</span>
-        </a>
-        <a class="ai-btn ai-btn-chatgpt" onclick="openAI('chatgpt', ${item.id})" href="javascript:void(0)">
-          <div class="ai-btn-icon">G</div>
+        </button>
+        <button class="ai-btn ai-btn-chatgpt" onclick="openAI('chatgpt', ${safeId})">
+          <div class="ai-btn-icon">GP</div>
           <span>ChatGPT</span>
-        </a>
-        <a class="ai-btn ai-btn-gemini" onclick="openAI('gemini', ${item.id})" href="javascript:void(0)">
-          <div class="ai-btn-icon">G</div>
+        </button>
+        <button class="ai-btn ai-btn-gemini" onclick="openAI('gemini', ${safeId})">
+          <div class="ai-btn-icon">Ge</div>
           <span>Gemini</span>
-        </a>
+        </button>
       </div>
     </div>
   `;

@@ -98,7 +98,13 @@ app.post('/api/news', async (req, res) => {
       throw new Error('Gemini хариуг JSON болгож чадсангүй');
     }
 
-    const text = data.candidates[0].content.parts[0].text;
+    const candidate = data.candidates?.[0];
+    if (!candidate || !candidate.content?.parts?.[0]?.text) {
+      console.error('Unexpected Gemini response:', JSON.stringify(data).slice(0, 500));
+      return res.status(502).json({ error: 'Gemini хариу хоосон байна' });
+    }
+
+    const text = candidate.content.parts[0].text;
     const clean = text.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(clean);
 

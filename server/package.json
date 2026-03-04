@@ -1,7 +1,7 @@
 {
   "name": "ai-pulse-server",
   "version": "1.0.0",
-  "description": "AI PULSE — Anthropic API proxy server",
+  "description": "AI PULSE — Gemini API proxy server",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
