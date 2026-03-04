@@ -961,6 +961,12 @@ const CATEGORY_LABELS = {
   'tools': 'ХЭРЭГСЭЛ'
 };
 
+function cleanCategory(cat) {
+  if (!cat) return 'tools';
+  const first = cat.split('|')[0].trim().toLowerCase();
+  return CATEGORY_COLORS[first] ? first : 'tools';
+}
+
 // Load settings
 const DEFAULT_API_URL = 'https://ainews-production-9c46.up.railway.app';
 
@@ -1145,7 +1151,7 @@ async function fetchNews() {
 }
 
 function renderNews(news) {
-  const filtered = currentFilter === 'all' ? news : news.filter(n => n.category === currentFilter);
+  const filtered = currentFilter === 'all' ? news : news.filter(n => cleanCategory(n.category) === currentFilter);
 
   if (!filtered.length) {
     document.getElementById('newsContainer').innerHTML = `
@@ -1160,8 +1166,9 @@ function renderNews(news) {
   const sorted = [...filtered].sort((a, b) => b.importance - a.importance);
 
   const html = sorted.map((item, i) => {
-    const catClass = CATEGORY_COLORS[item.category] || 'cat-tools';
-    const catLabel = CATEGORY_LABELS[item.category] || item.category.toUpperCase();
+    const cat = cleanCategory(item.category);
+    const catClass = CATEGORY_COLORS[cat];
+    const catLabel = CATEGORY_LABELS[cat];
     const delay = i * 0.06;
 
     return `
@@ -1236,8 +1243,9 @@ function setFilter(el, topic) {
 function openModal(id) {
   const item = allNews.find(n => Number(n.id) === Number(id));
   if (!item) return;
-  const catClass = CATEGORY_COLORS[item.category] || 'cat-tools';
-  const catLabel = CATEGORY_LABELS[item.category] || esc(item.category).toUpperCase();
+  const cat = cleanCategory(item.category);
+  const catClass = CATEGORY_COLORS[cat];
+  const catLabel = CATEGORY_LABELS[cat];
   const safeId = Number(item.id);
 
   document.getElementById('modalBody').innerHTML = `

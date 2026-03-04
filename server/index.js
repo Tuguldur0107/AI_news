@@ -37,12 +37,14 @@ async function translateWithGemini(articles) {
     `${i + 1}. ${a.title} [${a.source || ''}] URL:${a.url || ''}`
   ).join('\n');
 
-  const prompt = `Англи мэдээг монголоор орчуул. JSON хариулна уу.
+  const prompt = `Англи AI мэдээг монголоор орчуул. JSON хариулна уу.
 
 ${articleList}
 
-{"news":[{"id":1,"title":"Монгол гарчиг","summary":"Тайлбар","detail":"Дэлгэрэнгүй","category":"model|research|business|safety|tools","source":"Сурвалж","url":"URL хэвээр","importance":8,"featured":false,"timeAgo":"X цаг өмнө"}]}
-featured=true зөвхөн 2-т. url хэвээр.`;
+{"news":[{"id":1,"title":"Монгол гарчиг","summary":"2-3 өгүүлбэр","detail":"3-4 өгүүлбэр","category":"model","source":"Source Name","url":"URL хэвээр","importance":8,"featured":false,"timeAgo":"2 цагийн өмнө"}]}
+
+ЗААВАЛ: category нь ЗӨВХӨН нэг утга авна: "model", "research", "business", "safety", "tools". Хэзээ ч "|" тэмдэг бүү ашигла.
+featured=true зөвхөн 2-т. url хэвээр хадгал.`;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 120000);
@@ -144,7 +146,7 @@ app.post('/api/news/newsapi', async (req, res) => {
 
   try {
     const response = await fetch(
-      `https://newsapi.org/v2/everything?q=artificial+intelligence&sortBy=publishedAt&language=en&pageSize=10`,
+      `https://newsapi.org/v2/everything?q=%22artificial+intelligence%22+OR+%22AI+model%22+OR+%22machine+learning%22+OR+%22GPT%22+OR+%22LLM%22&sortBy=publishedAt&language=en&pageSize=10`,
       { headers: { 'X-Api-Key': apiKey } }
     );
 
@@ -179,7 +181,7 @@ app.post('/api/news/gnews', async (req, res) => {
 
   try {
     const response = await fetch(
-      `https://gnews.io/api/v4/search?q=artificial+intelligence&lang=en&max=8&apikey=${apiKey}`
+      `https://gnews.io/api/v4/search?q=%22artificial+intelligence%22+OR+%22AI+model%22+OR+%22machine+learning%22&lang=en&max=8&apikey=${apiKey}`
     );
 
     if (!response.ok) {
