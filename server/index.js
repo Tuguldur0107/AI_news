@@ -28,6 +28,18 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// ── Server-side cache ───────────────────────────────────────────
+const CACHE_TTL = parseInt(process.env.CACHE_TTL_MIN || '30', 10) * 60 * 1000;
+const newsCache = {
+  google:  { data: null, timestamp: 0 },
+  newsapi: { data: null, timestamp: 0 },
+  gnews:   { data: null, timestamp: 0 },
+};
+
+function isCacheFresh(source) {
+  return newsCache[source].data && (Date.now() - newsCache[source].timestamp < CACHE_TTL);
+}
+
 // ── Shared: Gemini translate helper ──────────────────────────────
 async function translateWithGemini(articles) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -98,210 +110,151 @@ featured=true зөвхөн 2-т. url хэвээр хадгал.`;
   }
 }
 
-// ── Helper: time ago from date ───────────────────────────────────
-function timeAgo(dateStr) {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diff = Math.floor((now - then) / 60000);
-  if (diff < 60) return `${diff} минутын өмнө`;
-  if (diff < 1440) return `${Math.floor(diff / 60)} цагийн өмнө`;
-  return `${Math.floor(diff / 1440)} өдрийн өмнө`;
+// ── Source fetchers (return raw English articles) ────────────────
+async function fetchGoogleArticles() {
+  const feed = await rssParser.parseURL(
+    'https://news.google.com/rss/search?q=artificial+intelligence&hl=en-US&gl=US&ceid=US:en'
+  );
+  return feed.items.slice(0, 8).map(item => {
+    const parts = (item.title || '').split(' - ');
+    const source = parts.length > 1 ? parts.pop().trim() : 'Google News';
+    const title = parts.join(' - ').trim();
+    return { title, summary: item.contentSnippet || item.content || title, source, url: item.link || '', published: item.pubDate || '' };
+  });
 }
 
-// ── 1. Google News RSS ───────────────────────────────────────────
+async function fetchNewsapiArticles() {
+  const apiKey = process.env.NEWSAPI_KEY;
+  if (!apiKey) throw new Error('NEWSAPI_KEY тохируулаагүй');
+  const response = await fetch(
+    `https://newsapi.org/v2/everything?q=%22artificial+intelligence%22+OR+%22AI+model%22+OR+%22machine+learning%22+OR+%22GPT%22+OR+%22LLM%22&sortBy=publishedAt&language=en&pageSize=10`,
+    { headers: { 'X-Api-Key': apiKey } }
+  );
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || `NewsAPI алдаа: ${response.status}`);
+  }
+  const data = await response.json();
+  return (data.articles || []).slice(0, 8).map(a => ({
+    title: a.title || '', summary: a.description || '', source: a.source?.name || '', url: a.url || '', published: a.publishedAt || '',
+  }));
+}
+
+async function fetchGnewsArticles() {
+  const apiKey = process.env.GNEWS_KEY;
+  if (!apiKey) throw new Error('GNEWS_KEY тохируулаагүй');
+  const response = await fetch(
+    `https://gnews.io/api/v4/search?q=%22artificial+intelligence%22+OR+%22AI+model%22+OR+%22machine+learning%22&lang=en&max=8&apikey=${apiKey}`
+  );
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.errors?.[0] || `GNews алдаа: ${response.status}`);
+  }
+  const data = await response.json();
+  return (data.articles || []).slice(0, 8).map(a => ({
+    title: a.title || '', summary: a.description || '', source: a.source?.name || '', url: a.url || '', published: a.publishedAt || '',
+  }));
+}
+
+// ── Fetch + translate one source (with cache) ───────────────────
+async function fetchAndCache(source) {
+  if (isCacheFresh(source)) {
+    return { source, data: newsCache[source].data, cached: true };
+  }
+
+  const fetchers = { google: fetchGoogleArticles, newsapi: fetchNewsapiArticles, gnews: fetchGnewsArticles };
+  try {
+    const articles = await fetchers[source]();
+    const translated = await translateWithGemini(articles);
+    newsCache[source] = { data: translated, timestamp: Date.now() };
+    return { source, data: translated, cached: false };
+  } catch (err) {
+    // If fetch fails but old cache exists, return stale cache
+    if (newsCache[source].data) {
+      return { source, data: newsCache[source].data, cached: true, error: err.message };
+    }
+    return { source, data: null, error: err.message };
+  }
+}
+
+// ── Main endpoint: fetch ALL sources at once ────────────────────
+app.post('/api/news/all', async (req, res) => {
+  try {
+    const results = await Promise.all([
+      fetchAndCache('google'),
+      fetchAndCache('newsapi'),
+      fetchAndCache('gnews'),
+    ]);
+
+    const response_data = {
+      timestamp: new Date().toISOString(),
+      cacheTTL: CACHE_TTL / 60000,
+    };
+
+    for (const r of results) {
+      response_data[r.source] = {
+        news: r.data?.news || [],
+        cached: r.cached || false,
+        error: r.error || null,
+      };
+    }
+
+    res.json(response_data);
+  } catch (err) {
+    console.error('All news error:', err.message);
+    res.status(500).json({ error: `Серверийн алдаа: ${err.message}` });
+  }
+});
+
+// ── Individual endpoints (kept for backwards compat) ────────────
 app.post('/api/news/google', async (req, res) => {
   try {
-    const feed = await rssParser.parseURL(
-      'https://news.google.com/rss/search?q=artificial+intelligence&hl=en-US&gl=US&ceid=US:en'
-    );
-
-    const articles = feed.items.slice(0, 8).map(item => {
-      // Google News includes source in title: "Title - Source Name"
-      const parts = (item.title || '').split(' - ');
-      const source = parts.length > 1 ? parts.pop().trim() : 'Google News';
-      const title = parts.join(' - ').trim();
-      return {
-        title,
-        summary: item.contentSnippet || item.content || title,
-        source,
-        url: item.link || '',
-        published: item.pubDate || '',
-      };
-    });
-
-    const result = await translateWithGemini(articles);
-    res.json(result);
+    const result = await fetchAndCache('google');
+    if (result.data) return res.json(result.data);
+    throw new Error(result.error);
   } catch (err) {
     console.error('Google News error:', err.message);
     res.status(500).json({ error: `Google News алдаа: ${err.message}` });
   }
 });
 
-// ── 2. NewsAPI.org ───────────────────────────────────────────────
 app.post('/api/news/newsapi', async (req, res) => {
-  const apiKey = process.env.NEWSAPI_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: 'NEWSAPI_KEY тохируулаагүй байна' });
-  }
-
   try {
-    const response = await fetch(
-      `https://newsapi.org/v2/everything?q=%22artificial+intelligence%22+OR+%22AI+model%22+OR+%22machine+learning%22+OR+%22GPT%22+OR+%22LLM%22&sortBy=publishedAt&language=en&pageSize=10`,
-      { headers: { 'X-Api-Key': apiKey } }
-    );
-
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error(err.message || `NewsAPI алдаа: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const articles = (data.articles || []).slice(0, 8).map(a => ({
-      title: a.title || '',
-      summary: a.description || '',
-      source: a.source?.name || '',
-      url: a.url || '',
-      published: a.publishedAt || '',
-    }));
-
-    const result = await translateWithGemini(articles);
-    res.json(result);
+    const result = await fetchAndCache('newsapi');
+    if (result.data) return res.json(result.data);
+    throw new Error(result.error);
   } catch (err) {
     console.error('NewsAPI error:', err.message);
     res.status(500).json({ error: `NewsAPI алдаа: ${err.message}` });
   }
 });
 
-// ── 3. GNews ─────────────────────────────────────────────────────
 app.post('/api/news/gnews', async (req, res) => {
-  const apiKey = process.env.GNEWS_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: 'GNEWS_KEY тохируулаагүй байна' });
-  }
-
   try {
-    const response = await fetch(
-      `https://gnews.io/api/v4/search?q=%22artificial+intelligence%22+OR+%22AI+model%22+OR+%22machine+learning%22&lang=en&max=8&apikey=${apiKey}`
-    );
-
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error(err.errors?.[0] || `GNews алдаа: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const articles = (data.articles || []).slice(0, 8).map(a => ({
-      title: a.title || '',
-      summary: a.description || '',
-      source: a.source?.name || '',
-      url: a.url || '',
-      published: a.publishedAt || '',
-    }));
-
-    const result = await translateWithGemini(articles);
-    res.json(result);
+    const result = await fetchAndCache('gnews');
+    if (result.data) return res.json(result.data);
+    throw new Error(result.error);
   } catch (err) {
     console.error('GNews error:', err.message);
     res.status(500).json({ error: `GNews алдаа: ${err.message}` });
   }
 });
 
-// ── Original Gemini-generated news (legacy) ──────────────────────
-app.post('/api/news', async (req, res) => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: 'GEMINI_API_KEY тохируулаагүй байна' });
+// ── Cache status endpoint ───────────────────────────────────────
+app.get('/api/cache-status', (req, res) => {
+  const status = {};
+  for (const [source, cache] of Object.entries(newsCache)) {
+    status[source] = {
+      hasData: !!cache.data,
+      fresh: isCacheFresh(source),
+      age: cache.timestamp ? Math.floor((Date.now() - cache.timestamp) / 60000) : null,
+      count: cache.data?.news?.length || 0,
+    };
   }
-
-  try {
-    const today = new Date().toLocaleDateString('mn-MN', {
-      year: 'numeric', month: 'long', day: 'numeric'
-    });
-
-    const prompt = `Та AI мэдээний шинжээч. Өнөөдрийн огноо: ${today}.
-
-Хиймэл оюун ухааны салбарт сүүлийн үеийн хамгийн чухал мэдээ, хөгжлүүдийг жагсаа. Дараах категориудад хамаарах 8-10 мэдээ үүсгэ:
-
-Зөвхөн JSON форматаар хариулна уу, ямар нэг тайлбар оруулалгүй:
-{
-  "news": [
-    {
-      "id": 1,
-      "title": "Монгол хэл дээрх мэдээний гарчиг",
-      "summary": "2-3 өгүүлбэрийн тайлбар монгол хэлээр",
-      "detail": "Дэлгэрэнгүй 3-4 өгүүлбэр",
-      "category": "model|research|business|safety|tools",
-      "source": "Мэдээний эх сурвалж",
-      "importance": 1-10,
-      "featured": true|false,
-      "timeAgo": "X цаг өмнө"
-    }
-  ]
-}
-
-Чухал: featured=true нь зөвхөн 2 хамгийн чухал мэдээнд тохирно. Бодит, сүүлийн үеийн AI мэдээг багтаа.`;
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 60000);
-
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 8192,
-            responseMimeType: 'application/json',
-          },
-        }),
-      }
-    );
-
-    clearTimeout(timeout);
-
-    if (!response.ok) {
-      const errText = await response.text();
-      let errMsg;
-      try { errMsg = JSON.parse(errText).error?.message; } catch(e) { errMsg = errText; }
-      return res.status(response.status).json({
-        error: errMsg || `Gemini API алдаа: ${response.status}`
-      });
-    }
-
-    const rawText = await response.text();
-    let data;
-    try { data = JSON.parse(rawText); } catch(e) {
-      console.error('Raw response:', rawText.slice(0, 500));
-      throw new Error('Gemini хариуг JSON болгож чадсангүй');
-    }
-
-    const candidate = data.candidates?.[0];
-    if (!candidate || !candidate.content?.parts?.[0]?.text) {
-      console.error('Unexpected Gemini response:', JSON.stringify(data).slice(0, 500));
-      return res.status(502).json({ error: 'Gemini хариу хоосон байна' });
-    }
-
-    const text = candidate.content.parts[0].text;
-    const clean = text.replace(/```json|```/g, '').trim();
-    let parsed;
-    try {
-      parsed = JSON.parse(clean);
-    } catch (parseErr) {
-      console.error('JSON parse failed. Clean text:', clean.slice(0, 500));
-      return res.status(502).json({ error: 'Gemini хариуг JSON болгож чадсангүй' });
-    }
-
-    res.json(parsed);
-  } catch (err) {
-    console.error('API error:', err.message);
-    res.status(500).json({ error: `Серверийн алдаа: ${err.message}` });
-  }
+  res.json({ cacheTTL: CACHE_TTL / 60000, sources: status });
 });
 
 app.listen(PORT, () => {
   console.log(`AI PULSE server → http://localhost:${PORT}`);
+  console.log(`Cache TTL: ${CACHE_TTL / 60000} minutes`);
 });

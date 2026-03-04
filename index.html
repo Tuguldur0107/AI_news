@@ -929,6 +929,7 @@
 
 <script>
 let allNews = [];
+let allSourceData = { google: [], newsapi: [], gnews: [] };
 let currentFilter = 'all';
 let isLoading = false;
 let autoRefreshTimer = null;
@@ -940,8 +941,8 @@ function esc(str) {
   return d.innerHTML;
 }
 
-function getCacheKey() { return `ai-pulse-news-${activeTab}`; }
-function getCacheTimeKey() { return `ai-pulse-news-time-${activeTab}`; }
+const CACHE_KEY = 'ai-pulse-all-news';
+const CACHE_TIME_KEY = 'ai-pulse-all-news-time';
 const API_URL_KEY = 'ai-pulse-api-url';
 const REFRESH_KEY = 'ai-pulse-refresh';
 
@@ -983,11 +984,12 @@ function init() {
   document.getElementById('apiUrl').value = getApiUrl();
   document.getElementById('refreshInterval').value = getRefreshInterval();
 
-  // Load cached news
-  const cached = localStorage.getItem(getCacheKey());
+  // Load cached news (all sources)
+  const cached = localStorage.getItem(CACHE_KEY);
   if (cached) {
     try {
-      allNews = JSON.parse(cached);
+      allSourceData = JSON.parse(cached);
+      allNews = allSourceData[activeTab] || [];
       renderNews(allNews);
       updateStats(true);
     } catch (e) { /* ignore */ }
@@ -1094,18 +1096,17 @@ async function fetchNews() {
 
   document.getElementById('newsContainer').innerHTML = `
     <div class="loading">
-      <div class="loading-text">// AI МЭДЭЭ ЦУГЛУУЛЖ БАЙНА</div>
+      <div class="loading-text">// 3 ЭХЭЭС AI МЭДЭЭ ЦУГЛУУЛЖ БАЙНА</div>
       <svg class="pulse-wave" viewBox="0 0 240 50">
         <path class="pulse-line" d="M0,25 L50,25 L70,25 L82,6 L95,44 L108,16 L116,34 L124,25 L170,25 L240,25" />
         <circle class="pulse-dot" cx="95" cy="25" r="3" />
       </svg>
-      <div class="loading-text" style="opacity:0.5">AI PULSE — PROCESSING...</div>
+      <div class="loading-text" style="opacity:0.5">AI PULSE — PROCESSING ALL SOURCES...</div>
     </div>
   `;
 
   try {
-    const endpoint = `/api/news/${activeTab}`;
-    const response = await fetch(`${apiUrl}${endpoint}`, {
+    const response = await fetch(`${apiUrl}/api/news/all`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -1113,12 +1114,27 @@ async function fetchNews() {
     const data = await response.json();
     if (data.error) throw new Error(data.error);
 
-    allNews = data.news;
+    // Collect errors from individual sources
+    const errors = [];
+    for (const src of ['google', 'newsapi', 'gnews']) {
+      if (data[src]) {
+        allSourceData[src] = data[src].news || [];
+        if (data[src].error) errors.push(`${src}: ${data[src].error}`);
+      }
+    }
 
-    // Cache to localStorage
-    localStorage.setItem(getCacheKey(), JSON.stringify(allNews));
-    localStorage.setItem(getCacheTimeKey(), new Date().toISOString());
+    // Show partial errors if any
+    if (errors.length > 0 && errors.length < 3) {
+      errorMsg.textContent = `⚠ Зарим эх сурвалжаас алдаа: ${errors.join('; ')}`;
+      errorMsg.classList.add('visible');
+    }
 
+    // Save all sources to localStorage
+    localStorage.setItem(CACHE_KEY, JSON.stringify(allSourceData));
+    localStorage.setItem(CACHE_TIME_KEY, new Date().toISOString());
+
+    // Display active tab's news
+    allNews = allSourceData[activeTab] || [];
     renderNews(allNews);
     updateStats(false);
     updateCacheInfo();
@@ -1129,9 +1145,10 @@ async function fetchNews() {
     errorMsg.classList.add('visible');
 
     // Fall back to cache
-    const cached = localStorage.getItem(getCacheKey());
+    const cached = localStorage.getItem(CACHE_KEY);
     if (cached) {
-      allNews = JSON.parse(cached);
+      allSourceData = JSON.parse(cached);
+      allNews = allSourceData[activeTab] || [];
       renderNews(allNews);
       updateStats(true);
     } else {
@@ -1201,12 +1218,12 @@ function updateStats(fromCache) {
 
   let timeText = new Date().toLocaleTimeString('mn-MN', { hour: '2-digit', minute: '2-digit' });
   if (fromCache) {
-    const cachedTime = localStorage.getItem(getCacheTimeKey());
+    const cachedTime = localStorage.getItem(CACHE_TIME_KEY);
     if (cachedTime) {
       timeText = new Date(cachedTime).toLocaleTimeString('mn-MN', { hour: '2-digit', minute: '2-digit' });
     }
   }
-  document.getElementById('statTime').innerHTML = timeText + (fromCache ? '<span class="cache-badge">КЭШ</span>' : '');
+  document.getElementById('statTime').innerHTML = timeText + (fromCache ? '<span class="cache-badge">СЕРВЕРИЙН КЭШ</span>' : '');
 }
 
 function setTab(tab) {
@@ -1214,15 +1231,12 @@ function setTab(tab) {
   document.querySelectorAll('.source-tab').forEach(t => t.classList.remove('active'));
   document.querySelector(`.source-tab[onclick="setTab('${tab}')"]`).classList.add('active');
 
-  // Load from cache or fetch
-  const cached = localStorage.getItem(getCacheKey());
-  if (cached) {
-    allNews = JSON.parse(cached);
+  // Switch to this tab's cached data
+  allNews = allSourceData[activeTab] || [];
+  if (allNews.length) {
     renderNews(allNews);
     updateStats(true);
-    updateCacheInfo();
   } else {
-    allNews = [];
     document.getElementById('newsContainer').innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">◈</div>
@@ -1330,10 +1344,16 @@ function toggleSettings() {
 }
 
 function clearCache() {
-  localStorage.removeItem(getCacheKey());
-  localStorage.removeItem(getCacheTimeKey());
+  localStorage.removeItem(CACHE_KEY);
+  localStorage.removeItem(CACHE_TIME_KEY);
+  // Also remove old per-tab cache keys
+  ['google','newsapi','gnews'].forEach(t => {
+    localStorage.removeItem(`ai-pulse-news-${t}`);
+    localStorage.removeItem(`ai-pulse-news-time-${t}`);
+  });
   updateCacheInfo();
   allNews = [];
+  allSourceData = { google: [], newsapi: [], gnews: [] };
   document.getElementById('newsContainer').innerHTML = `
     <div class="empty-state">
       <div class="empty-icon">◈</div>
@@ -1345,13 +1365,14 @@ function clearCache() {
 }
 
 function updateCacheInfo() {
-  const cached = localStorage.getItem(getCacheKey());
-  const time = localStorage.getItem(getCacheTimeKey());
+  const cached = localStorage.getItem(CACHE_KEY);
+  const time = localStorage.getItem(CACHE_TIME_KEY);
   const info = document.getElementById('cacheInfo');
   if (cached && time) {
-    const count = JSON.parse(cached).length;
+    const data = JSON.parse(cached);
+    const total = (data.google?.length || 0) + (data.newsapi?.length || 0) + (data.gnews?.length || 0);
     const d = new Date(time);
-    info.textContent = `${count} мэдээ • ${d.toLocaleDateString('mn-MN')} ${d.toLocaleTimeString('mn-MN', {hour:'2-digit', minute:'2-digit'})}`;
+    info.textContent = `${total} мэдээ (3 эх) • ${d.toLocaleDateString('mn-MN')} ${d.toLocaleTimeString('mn-MN', {hour:'2-digit', minute:'2-digit'})}`;
   } else {
     info.textContent = 'Кэш хоосон';
   }
