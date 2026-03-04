@@ -45,7 +45,7 @@ ${articleList}
 featured=true зөвхөн 2-т. url хэвээр.`;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 90000);
+  const timeout = setTimeout(() => controller.abort(), 120000);
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
@@ -113,7 +113,7 @@ app.post('/api/news/google', async (req, res) => {
       'https://news.google.com/rss/search?q=artificial+intelligence&hl=en-US&gl=US&ceid=US:en'
     );
 
-    const articles = feed.items.slice(0, 10).map(item => {
+    const articles = feed.items.slice(0, 8).map(item => {
       // Google News includes source in title: "Title - Source Name"
       const parts = (item.title || '').split(' - ');
       const source = parts.length > 1 ? parts.pop().trim() : 'Google News';
@@ -154,7 +154,7 @@ app.post('/api/news/newsapi', async (req, res) => {
     }
 
     const data = await response.json();
-    const articles = (data.articles || []).slice(0, 10).map(a => ({
+    const articles = (data.articles || []).slice(0, 8).map(a => ({
       title: a.title || '',
       summary: a.description || '',
       source: a.source?.name || '',
@@ -189,7 +189,7 @@ app.post('/api/news/bing', async (req, res) => {
     }
 
     const data = await response.json();
-    const articles = (data.value || []).slice(0, 10).map(a => ({
+    const articles = (data.value || []).slice(0, 8).map(a => ({
       title: a.name || '',
       summary: a.description || '',
       source: a.provider?.[0]?.name || '',
