@@ -109,7 +109,7 @@
   .container {
     position: relative;
     z-index: 5;
-    max-width: 1400px;
+    max-width: 900px;
     margin: 0 auto;
     padding: 20px;
     padding-left: calc(20px + var(--safe-left));
@@ -214,14 +214,15 @@
   /* News grid */
   .news-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
   }
 
   .news-card {
     background: var(--card);
     border: 1px solid var(--border);
-    padding: 20px;
+    border-radius: 10px;
+    padding: 18px;
     position: relative;
     overflow: hidden;
     animation: fadeInUp 0.4s ease forwards;
@@ -230,6 +231,8 @@
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
+    display: flex;
+    flex-direction: column;
   }
 
   .news-card::before {
@@ -242,6 +245,7 @@
     transform: scaleY(0);
     transform-origin: top;
     transition: transform 0.3s;
+    border-radius: 10px 0 0 10px;
   }
 
   .news-card:hover::before { transform: scaleY(1); }
@@ -307,6 +311,7 @@
     color: var(--muted);
     line-height: 1.6;
     margin-bottom: 14px;
+    flex: 1;
   }
 
   .card-source {
@@ -757,7 +762,7 @@
       padding: 14px 40px;
       padding-top: calc(14px + var(--safe-top));
     }
-    .container { padding: 24px 40px; max-width: 1400px; }
+    .container { padding: 24px 40px; max-width: 900px; }
     .modal {
       align-self: center;
       border-radius: 12px;
@@ -773,9 +778,10 @@
 
   /* Mobile responsive */
   @media (max-width: 768px) {
-    .news-grid { grid-template-columns: 1fr; }
+    .news-grid { grid-template-columns: 1fr; gap: 12px; }
     .news-card.featured { grid-column: span 1; }
     .news-card.featured .card-title { font-size: 16px; }
+    .news-card { padding: 16px; }
     .stats-bar { gap: 16px; flex-wrap: wrap; }
     .logo-text { font-size: 15px; letter-spacing: 3px; }
     .controls { gap: 8px; }
@@ -1196,7 +1202,7 @@ function openAI(platform, id) {
   const urls = {
     claude: `https://claude.ai/new?q=${encoded}`,
     chatgpt: `https://chat.openai.com/?q=${encoded}`,
-    gemini: `https://gemini.google.com/app?q=${encoded}`,
+    gemini: `https://aistudio.google.com/prompts/new_chat?q=${encoded}`,
   };
 
   window.open(urls[platform], '_blank');
