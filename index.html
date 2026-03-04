@@ -36,6 +36,10 @@
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
+  /* Hide scrollbar but keep scrolling */
+  ::-webkit-scrollbar { width: 0; background: transparent; }
+  html { scrollbar-width: none; }
+
   body {
     font-family: 'Syne', sans-serif;
     background: var(--bg);
@@ -49,20 +53,14 @@
     overscroll-behavior-y: contain;
   }
 
-  /* Animated background grid */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
+  /* Background grid — applied directly to body to avoid pseudo-element overflow */
+  body {
     background-image:
       linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
       linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
     background-size: 40px 40px;
-    pointer-events: none;
-    z-index: 0;
+    background-attachment: fixed;
   }
-
-  .scanline { display: none; }
 
 
   /* Header */
@@ -856,8 +854,6 @@
 </style>
 </head>
 <body>
-<div class="scanline"></div>
-
 <header>
   <div class="logo">
     <div class="logo-icon">AI</div>
