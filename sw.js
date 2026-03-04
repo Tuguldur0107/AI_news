@@ -1,9 +1,9 @@
 const CACHE_NAME = 'ai-pulse-v1';
 const STATIC_ASSETS = [
-  '/index.html',
-  '/manifest.json',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
+  './index.html',
+  './manifest.json',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
 ];
 
 const NEWS_CACHE = 'ai-pulse-news-v1';

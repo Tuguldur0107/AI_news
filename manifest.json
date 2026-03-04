@@ -2,7 +2,7 @@
   "name": "AI PULSE — Хиймэл оюуны мэдээ",
   "short_name": "AI PULSE",
   "description": "Хиймэл оюун ухааны сүүлийн үеийн мэдээ",
-  "start_url": "/index.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#050508",
   "theme_color": "#050508",
