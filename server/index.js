@@ -34,37 +34,15 @@ async function translateWithGemini(articles) {
   if (!apiKey) throw new Error('GEMINI_API_KEY тохируулаагүй');
 
   const articleList = articles.map((a, i) =>
-    `${i + 1}. Title: ${a.title}\nSummary: ${a.summary || ''}\nSource: ${a.source || ''}\nURL: ${a.url || ''}\nPublished: ${a.published || ''}`
-  ).join('\n\n');
+    `${i + 1}. ${a.title} [${a.source || ''}] URL:${a.url || ''}`
+  ).join('\n');
 
-  const prompt = `Та AI мэдээний орчуулагч. Дараах англи хэлний AI мэдээнүүдийг монгол хэлрүү орчуулж JSON формат болго.
+  const prompt = `Англи мэдээг монголоор орчуул. JSON хариулна уу.
 
-Мэдээнүүд:
 ${articleList}
 
-Зөвхөн JSON форматаар хариулна уу:
-{
-  "news": [
-    {
-      "id": 1,
-      "title": "Монгол хэлрүү орчуулсан гарчиг",
-      "summary": "2-3 өгүүлбэрийн тайлбар монгол хэлээр",
-      "detail": "Дэлгэрэнгүй 3-4 өгүүлбэр монголоор",
-      "category": "model|research|business|safety|tools",
-      "source": "Эх сурвалжийн нэр",
-      "url": "Эх мэдээний URL",
-      "importance": 1-10,
-      "featured": true|false,
-      "timeAgo": "X цаг/минут өмнө"
-    }
-  ]
-}
-
-Чухал:
-- featured=true зөвхөн 2 хамгийн чухал мэдээнд
-- category-г мэдээний агуулгаас тодорхойл
-- url талбарыг анхны мэдээнээс хэвээр хадгал
-- timeAgo-г published огнооноос тооцоол`;
+{"news":[{"id":1,"title":"Монгол гарчиг","summary":"Тайлбар","detail":"Дэлгэрэнгүй","category":"model|research|business|safety|tools","source":"Сурвалж","url":"URL хэвээр","importance":8,"featured":false,"timeAgo":"X цаг өмнө"}]}
+featured=true зөвхөн 2-т. url хэвээр.`;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 90000);
