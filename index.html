@@ -1178,9 +1178,10 @@ function init() {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 
-  // Auto-fetch from server on page load (server returns cached data fast)
+  // Auto-fetch from server on page load — silent if we already have cached data
   if (navigator.onLine) {
-    fetchNews();
+    const hasCached = allNews.length > 0;
+    fetchNews(hasCached);
   }
 }
 
@@ -1241,7 +1242,7 @@ function setupPullToRefresh() {
   }, { passive: true });
 }
 
-async function fetchNews() {
+async function fetchNews(silent) {
   if (isLoading) return;
 
   const apiUrl = getApiUrl();
@@ -1260,16 +1261,19 @@ async function fetchNews() {
   btn.textContent = '⟳ ТАТАЖ БАЙНА...';
   errorMsg.classList.remove('visible');
 
-  document.getElementById('newsContainer').innerHTML = `
-    <div class="loading">
-      <div class="loading-text">// 3 ЭХЭЭС AI МЭДЭЭ ЦУГЛУУЛЖ БАЙНА</div>
-      <svg class="pulse-wave" viewBox="0 0 240 50">
-        <path class="pulse-line" d="M0,25 L50,25 L70,25 L82,6 L95,44 L108,16 L116,34 L124,25 L170,25 L240,25" />
-        <circle class="pulse-dot" cx="95" cy="25" r="3" />
-      </svg>
-      <div class="loading-text" style="opacity:0.5">AI PULSE — PROCESSING ALL SOURCES...</div>
-    </div>
-  `;
+  // Only show loading animation if no cached data on screen
+  if (!silent) {
+    document.getElementById('newsContainer').innerHTML = `
+      <div class="loading">
+        <div class="loading-text">// 3 ЭХЭЭС AI МЭДЭЭ ЦУГЛУУЛЖ БАЙНА</div>
+        <svg class="pulse-wave" viewBox="0 0 240 50">
+          <path class="pulse-line" d="M0,25 L50,25 L70,25 L82,6 L95,44 L108,16 L116,34 L124,25 L170,25 L240,25" />
+          <circle class="pulse-dot" cx="95" cy="25" r="3" />
+        </svg>
+        <div class="loading-text" style="opacity:0.5">AI PULSE — PROCESSING ALL SOURCES...</div>
+      </div>
+    `;
+  }
 
   try {
     const response = await fetch(`${apiUrl}/api/news/all`, {
