@@ -1235,9 +1235,11 @@ function init() {
   setupOnlineStatus();
   setupScrollHandlers();
 
-  // Register service worker
+  // Register service worker + setup push
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    navigator.serviceWorker.register('sw.js')
+      .then(() => setupPushNotifications())
+      .catch(() => {});
   }
 
   // Load from server cache (no re-fetching, just returns what server has)
@@ -1706,6 +1708,43 @@ modalEl.addEventListener('touchend', (e) => {
     document.body.style.overflow = '';
   }
 }, { passive: true });
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+}
+
+async function setupPushNotifications() {
+  if (!('PushManager' in window) || !('Notification' in window)) return;
+  try {
+    const apiUrl = getApiUrl();
+    const keyRes = await fetch(`${apiUrl}/api/vapid-public-key`);
+    const { publicKey } = await keyRes.json();
+
+    const registration = await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+
+    if (!subscription) {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') return;
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+    }
+
+    // Register subscription with server (in case server restarted)
+    fetch(`${apiUrl}/api/subscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(subscription),
+    }).catch(() => {});
+  } catch (e) {
+    console.error('Push setup error:', e);
+  }
+}
 
 // Init
 init();

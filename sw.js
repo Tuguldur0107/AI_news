@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ai-pulse-v3';
+const CACHE_NAME = 'ai-pulse-v4';
 const STATIC_ASSETS = [
   './index.html',
   './manifest.json',
@@ -24,6 +24,34 @@ self.addEventListener('activate', (event) => {
     )
   );
   self.clients.claim();
+});
+
+self.addEventListener('push', (event) => {
+  const data = event.data ? event.data.json() : {};
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'AI PULSE', {
+      body: data.body || 'Шинэ мэдээ ирлээ',
+      icon: './icons/icon-192.png',
+      badge: './icons/icon-192.png',
+      tag: 'ai-pulse-news',
+      renotify: true,
+      data: { url: data.url || '/' },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      return clients.openWindow(event.notification.data?.url || '/');
+    })
+  );
 });
 
 self.addEventListener('fetch', (event) => {

@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const RSSParser = require('rss-parser');
+const webpush = require('web-push');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,6 +24,33 @@ const limiter = rateLimit({
 });
 
 app.use('/api/', limiter);
+
+// ── Web Push (VAPID) ─────────────────────────────────────────────
+const VAPID_PUBLIC_KEY  = process.env.VAPID_PUBLIC_KEY  || 'BHqLihY9JqAID42cSnokiRPM5jmIBnLHvmOF3IL_j7AFoBWGkNB8c-VxEZtnudLRrPQx6C9mxw3Ti3xBcQEiz5g';
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '9uGT3GA0mPEjMCLrpF2TnSU1I5nn4-zwN83pkUilC4U';
+
+webpush.setVapidDetails('mailto:admin@ainews.app', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+
+const subscriptions = new Map();
+
+app.get('/api/vapid-public-key', (req, res) => {
+  res.json({ publicKey: VAPID_PUBLIC_KEY });
+});
+
+app.post('/api/subscribe', (req, res) => {
+  const sub = req.body;
+  if (!sub || !sub.endpoint) return res.status(400).json({ error: 'Invalid subscription' });
+  subscriptions.set(sub.endpoint, sub);
+  res.json({ success: true });
+});
+
+async function sendPushToAll(payload) {
+  for (const [endpoint, sub] of subscriptions) {
+    webpush.sendNotification(sub, JSON.stringify(payload)).catch(err => {
+      if (err.statusCode === 410 || err.statusCode === 404) subscriptions.delete(endpoint);
+    });
+  }
+}
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -244,6 +272,22 @@ app.post('/api/news/all', async (req, res) => {
         cached: r.cached || false,
         error: r.error || null,
       };
+    }
+
+    // Send push notification if any source returned fresh data
+    if (subscriptions.size > 0) {
+      const freshItem = results
+        .filter(r => !r.cached && r.data?.news?.length > 0)
+        .flatMap(r => r.data.news)
+        .sort((a, b) => b.importance - a.importance)[0];
+
+      if (freshItem) {
+        sendPushToAll({
+          title: 'AI PULSE — Шинэ мэдээ',
+          body: freshItem.title,
+          url: freshItem.url || '/',
+        });
+      }
     }
 
     res.json(response_data);
