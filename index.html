@@ -1031,19 +1031,18 @@
     </div>
   </div>
 
+  <div class="source-tabs" id="topicTabs">
+    <button class="source-tab active" data-topic="ai" onclick="setTopic('ai')">AI</button>
+    <button class="source-tab" data-topic="iot" onclick="setTopic('iot')">IoT</button>
+    <button class="source-tab" data-topic="rfid" onclick="setTopic('rfid')">RFID</button>
+  </div>
+
   <div class="sticky-toolbar" id="stickyToolbar">
     <div class="controls">
       <button class="fetch-btn" id="fetchBtn" onclick="fetchNews()">
         ▶ REFRESH
       </button>
-      <div class="topic-filters">
-        <button class="filter-tag active" data-topic="all" onclick="setFilter(this, 'all')">ALL</button>
-        <button class="filter-tag" data-topic="model" onclick="setFilter(this, 'model')">MODEL</button>
-        <button class="filter-tag" data-topic="research" onclick="setFilter(this, 'research')">RESEARCH</button>
-        <button class="filter-tag" data-topic="business" onclick="setFilter(this, 'business')">BUSINESS</button>
-        <button class="filter-tag" data-topic="safety" onclick="setFilter(this, 'safety')">SAFETY</button>
-        <button class="filter-tag" data-topic="tools" onclick="setFilter(this, 'tools')">TOOLS</button>
-      </div>
+      <div class="topic-filters" id="filterRow"></div>
     </div>
   </div>
 
@@ -1071,16 +1070,41 @@
 
 <script>
 let allNews = [];
-let allSourceData = { google: [], newsapi: [], gnews: [] };
+let allSourceData = { google: [], newsapi: [], gnews: [], iot: [], rfid: [] };
 let currentFilter = 'all';
 let isLoading = false;
 let autoRefreshTimer = null;
+let activeTopic = 'ai';
+
+const TOPIC_SOURCES = {
+  ai:   ['google', 'newsapi', 'gnews'],
+  iot:  ['iot'],
+  rfid: ['rfid'],
+};
+
+const TOPIC_FILTERS = {
+  ai:   [
+    { key: 'all', label: 'ALL' }, { key: 'model', label: 'MODEL' },
+    { key: 'research', label: 'RESEARCH' }, { key: 'business', label: 'BUSINESS' },
+    { key: 'safety', label: 'SAFETY' }, { key: 'tools', label: 'TOOLS' },
+  ],
+  iot:  [
+    { key: 'all', label: 'ALL' }, { key: 'hardware', label: 'HARDWARE' },
+    { key: 'connectivity', label: 'CONNECTIVITY' }, { key: 'industry', label: 'INDUSTRY' },
+    { key: 'security', label: 'SECURITY' }, { key: 'platform', label: 'PLATFORM' },
+  ],
+  rfid: [
+    { key: 'all', label: 'ALL' }, { key: 'hardware', label: 'HARDWARE' },
+    { key: 'retail', label: 'RETAIL' }, { key: 'logistics', label: 'LOGISTICS' },
+    { key: 'healthcare', label: 'HEALTHCARE' }, { key: 'standard', label: 'STANDARD' },
+  ],
+};
 
 function mergeAllSources() {
   const seen = new Set();
   const merged = [];
   let uid = 1;
-  for (const src of ['google', 'newsapi', 'gnews']) {
+  for (const src of (TOPIC_SOURCES[activeTopic] || [])) {
     for (const item of (allSourceData[src] || [])) {
       const key = (item.title || '').toLowerCase().replace(/[^a-z0-9\u0400-\u04ff]/g, '').slice(0, 50);
       if (!seen.has(key)) {
@@ -1090,6 +1114,33 @@ function mergeAllSources() {
     }
   }
   return merged;
+}
+
+function renderFilters(topic) {
+  const row = document.getElementById('filterRow');
+  row.innerHTML = TOPIC_FILTERS[topic].map(f =>
+    `<button class="filter-tag${f.key === 'all' ? ' active' : ''}" data-topic="${f.key}" onclick="setFilter(this, '${f.key}')">${f.label}</button>`
+  ).join('');
+  currentFilter = 'all';
+}
+
+function setTopic(topic) {
+  activeTopic = topic;
+  document.querySelectorAll('#topicTabs .source-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`#topicTabs .source-tab[data-topic="${topic}"]`).classList.add('active');
+  renderFilters(topic);
+  allNews = mergeAllSources();
+  if (allNews.length) {
+    renderNews(allNews);
+  } else {
+    document.getElementById('newsContainer').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">◈</div>
+        <div class="empty-text">Press REFRESH to load ${topic.toUpperCase()} news</div>
+        <div class="empty-sub">// AI PULSE — ${topic.toUpperCase()} sources ready</div>
+      </div>
+    `;
+  }
 }
 
 function esc(str) {
@@ -1104,19 +1155,21 @@ const API_URL_KEY = 'ai-pulse-api-url';
 const REFRESH_KEY = 'ai-pulse-refresh';
 
 const CATEGORY_COLORS = {
-  'model': 'cat-model',
-  'research': 'cat-research',
-  'business': 'cat-business',
-  'safety': 'cat-safety',
-  'tools': 'cat-tools'
+  'model': 'cat-model', 'research': 'cat-research', 'business': 'cat-business',
+  'safety': 'cat-safety', 'tools': 'cat-tools',
+  'hardware': 'cat-model', 'connectivity': 'cat-research', 'industry': 'cat-business',
+  'security': 'cat-safety', 'platform': 'cat-tools',
+  'retail': 'cat-model', 'logistics': 'cat-research', 'healthcare': 'cat-business',
+  'standard': 'cat-safety',
 };
 
 const CATEGORY_LABELS = {
-  'model': 'MODEL',
-  'research': 'RESEARCH',
-  'business': 'BUSINESS',
-  'safety': 'SAFETY',
-  'tools': 'TOOLS'
+  'model': 'MODEL', 'research': 'RESEARCH', 'business': 'BUSINESS',
+  'safety': 'SAFETY', 'tools': 'TOOLS',
+  'hardware': 'HARDWARE', 'connectivity': 'CONNECTIVITY', 'industry': 'INDUSTRY',
+  'security': 'SECURITY', 'platform': 'PLATFORM',
+  'retail': 'RETAIL', 'logistics': 'LOGISTICS', 'healthcare': 'HEALTHCARE',
+  'standard': 'STANDARD',
 };
 
 function getFaviconUrl(urlOrSource) {
@@ -1150,6 +1203,7 @@ function init() {
   // Restore settings
   document.getElementById('apiUrl').value = getApiUrl();
   document.getElementById('refreshInterval').value = getRefreshInterval();
+  renderFilters('ai');
 
   // Load cached news (all sources)
   const cached = localStorage.getItem(CACHE_KEY);
@@ -1201,7 +1255,7 @@ async function loadFromServerCache() {
     const data = await response.json();
 
     let hasNews = false;
-    for (const src of ['google', 'newsapi', 'gnews']) {
+    for (const src of ['google', 'newsapi', 'gnews', 'iot', 'rfid']) {
       if (data[src] && data[src].news && data[src].news.length > 0) {
         allSourceData[src] = data[src].news;
         hasNews = true;
@@ -1320,7 +1374,7 @@ async function fetchNews() {
 
     // Collect errors from individual sources
     const errors = [];
-    for (const src of ['google', 'newsapi', 'gnews']) {
+    for (const src of ['google', 'newsapi', 'gnews', 'iot', 'rfid']) {
       if (data[src]) {
         allSourceData[src] = data[src].news || [];
         if (data[src].error) errors.push(`${src}: ${data[src].error}`);
@@ -1565,7 +1619,7 @@ function clearCache() {
   });
   updateCacheInfo();
   allNews = [];
-  allSourceData = { google: [], newsapi: [], gnews: [] };
+  allSourceData = { google: [], newsapi: [], gnews: [], iot: [], rfid: [] };
   document.getElementById('newsContainer').innerHTML = `
     <div class="empty-state">
       <div class="empty-icon">◈</div>
@@ -1581,9 +1635,9 @@ function updateCacheInfo() {
   const info = document.getElementById('cacheInfo');
   if (cached && time) {
     const data = JSON.parse(cached);
-    const total = (data.google?.length || 0) + (data.newsapi?.length || 0) + (data.gnews?.length || 0);
+    const total = ['google','newsapi','gnews','iot','rfid'].reduce((s,k) => s + (data[k]?.length || 0), 0);
     const d = new Date(time);
-    info.textContent = `${total} мэдээ (3 эх) • ${d.toLocaleDateString('mn-MN')} ${d.toLocaleTimeString('mn-MN', {hour:'2-digit', minute:'2-digit'})}`;
+    info.textContent = `${total} мэдээ (5 эх) • ${d.toLocaleDateString('mn-MN')} ${d.toLocaleTimeString('mn-MN', {hour:'2-digit', minute:'2-digit'})}`;
   } else {
     info.textContent = 'Кэш хоосон';
   }

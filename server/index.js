@@ -34,6 +34,8 @@ const newsCache = {
   google:  { data: null, timestamp: 0 },
   newsapi: { data: null, timestamp: 0 },
   gnews:   { data: null, timestamp: 0 },
+  iot:     { data: null, timestamp: 0 },
+  rfid:    { data: null, timestamp: 0 },
 };
 
 function isCacheFresh(source) {
@@ -42,21 +44,29 @@ function isCacheFresh(source) {
 }
 
 // ── Shared: Gemini translate helper ──────────────────────────────
-async function translateWithGemini(articles) {
+const TOPIC_CATEGORIES = {
+  ai:   '"model", "research", "business", "safety", "tools"',
+  iot:  '"hardware", "connectivity", "industry", "security", "platform"',
+  rfid: '"hardware", "retail", "logistics", "healthcare", "standard"',
+};
+
+async function translateWithGemini(articles, topic = 'ai') {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY тохируулаагүй');
+
+  const categories = TOPIC_CATEGORIES[topic] || TOPIC_CATEGORIES.ai;
 
   const articleList = articles.map((a, i) =>
     `${i + 1}. ${a.title} [${a.source || ''}] URL:${a.url || ''}`
   ).join('\n');
 
-  const prompt = `Англи AI мэдээг монголоор орчуул. JSON хариулна уу.
+  const prompt = `Англи ${topic.toUpperCase()} мэдээг монголоор орчуул. JSON хариулна уу.
 
 ${articleList}
 
-{"news":[{"id":1,"title":"Монгол гарчиг","summary":"2-3 өгүүлбэр","detail":"3-4 өгүүлбэр","category":"model","source":"Source Name","url":"URL хэвээр","importance":8,"featured":false,"timeAgo":"2 цагийн өмнө"}]}
+{"news":[{"id":1,"title":"Монгол гарчиг","summary":"2-3 өгүүлбэр","detail":"3-4 өгүүлбэр","category":"...","source":"Source Name","url":"URL хэвээр","importance":8,"featured":false,"timeAgo":"2 цагийн өмнө"}]}
 
-ЗААВАЛ: category нь ЗӨВХӨН нэг утга авна: "model", "research", "business", "safety", "tools". Хэзээ ч "|" тэмдэг бүү ашигла.
+ЗААВАЛ: category нь ЗӨВХӨН нэг утга авна: ${categories}. Хэзээ ч "|" тэмдэг бүү ашигла.
 featured=true зөвхөн 2-т. url хэвээр хадгал.`;
 
   const controller = new AbortController();
@@ -141,6 +151,30 @@ async function fetchNewsapiArticles() {
   }));
 }
 
+async function fetchIoTArticles() {
+  const feed = await rssParser.parseURL(
+    'https://news.google.com/rss/search?q=IoT+Internet+of+Things+smart+device&hl=en-US&gl=US&ceid=US:en'
+  );
+  return feed.items.slice(0, 8).map(item => {
+    const parts = (item.title || '').split(' - ');
+    const source = parts.length > 1 ? parts.pop().trim() : 'Google News';
+    const title = parts.join(' - ').trim();
+    return { title, summary: item.contentSnippet || item.content || title, source, url: item.link || '', published: item.pubDate || '' };
+  });
+}
+
+async function fetchRFIDArticles() {
+  const feed = await rssParser.parseURL(
+    'https://news.google.com/rss/search?q=RFID+technology+tracking+tag&hl=en-US&gl=US&ceid=US:en'
+  );
+  return feed.items.slice(0, 8).map(item => {
+    const parts = (item.title || '').split(' - ');
+    const source = parts.length > 1 ? parts.pop().trim() : 'Google News';
+    const title = parts.join(' - ').trim();
+    return { title, summary: item.contentSnippet || item.content || title, source, url: item.link || '', published: item.pubDate || '' };
+  });
+}
+
 async function fetchGnewsArticles() {
   const apiKey = process.env.GNEWS_KEY;
   if (!apiKey) throw new Error('GNEWS_KEY тохируулаагүй');
@@ -163,10 +197,17 @@ async function fetchAndCache(source) {
     return { source, data: newsCache[source].data, cached: true };
   }
 
-  const fetchers = { google: fetchGoogleArticles, newsapi: fetchNewsapiArticles, gnews: fetchGnewsArticles };
+  const fetchers = {
+    google: fetchGoogleArticles,
+    newsapi: fetchNewsapiArticles,
+    gnews: fetchGnewsArticles,
+    iot: fetchIoTArticles,
+    rfid: fetchRFIDArticles,
+  };
+  const topicMap = { google: 'ai', newsapi: 'ai', gnews: 'ai', iot: 'iot', rfid: 'rfid' };
   try {
     const articles = await fetchers[source]();
-    const translated = await translateWithGemini(articles);
+    const translated = await translateWithGemini(articles, topicMap[source]);
     // Only cache if we got actual results
     if (translated?.news?.length > 0) {
       newsCache[source] = { data: translated, timestamp: Date.now() };
@@ -188,6 +229,8 @@ app.post('/api/news/all', async (req, res) => {
       fetchAndCache('google'),
       fetchAndCache('newsapi'),
       fetchAndCache('gnews'),
+      fetchAndCache('iot'),
+      fetchAndCache('rfid'),
     ]);
 
     const response_data = {
@@ -251,7 +294,7 @@ app.get('/api/news/cached', (req, res) => {
     cacheTTL: CACHE_TTL / 60000,
   };
 
-  for (const source of ['google', 'newsapi', 'gnews']) {
+  for (const source of ['google', 'newsapi', 'gnews', 'iot', 'rfid']) {
     response_data[source] = {
       news: newsCache[source].data?.news || [],
       cached: true,
@@ -265,7 +308,7 @@ app.get('/api/news/cached', (req, res) => {
 // ── Cache status endpoint ───────────────────────────────────────
 app.get('/api/cache-status', (req, res) => {
   const status = {};
-  for (const [source, cache] of Object.entries(newsCache)) {
+  for (const [source, cache] of Object.entries(newsCache) ) {
     status[source] = {
       hasData: !!cache.data,
       fresh: isCacheFresh(source),
