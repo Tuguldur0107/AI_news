@@ -1280,7 +1280,8 @@ function setupAutoRefresh() {
   if (autoRefreshTimer) clearInterval(autoRefreshTimer);
   const mins = getRefreshInterval();
   autoRefreshTimer = setInterval(() => {
-    if (!isLoading && allNews.length > 0 && navigator.onLine) fetchNews();
+    const hasAnyData = Object.values(allSourceData).some(arr => arr.length > 0);
+    if (!isLoading && hasAnyData && navigator.onLine) fetchNews();
   }, mins * 60 * 1000);
 }
 
@@ -1354,7 +1355,7 @@ async function fetchNews() {
 
   document.getElementById('newsContainer').innerHTML = `
     <div class="loading">
-      <div class="loading-text">// FETCHING AI NEWS FROM 3 SOURCES</div>
+      <div class="loading-text">// FETCHING ALL NEWS — AI · IoT · RFID</div>
       <svg class="pulse-wave" viewBox="0 0 240 50">
         <path class="pulse-line" d="M0,25 L50,25 L70,25 L82,6 L95,44 L108,16 L116,34 L124,25 L170,25 L240,25" />
         <circle class="pulse-dot" cx="95" cy="25" r="3" />
