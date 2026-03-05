@@ -1031,24 +1031,18 @@
     </div>
   </div>
 
-  <div class="source-tabs" id="sourceTabs">
-    <button class="source-tab active" onclick="setTab('google')">Google <span class="tab-count" id="tabCountGoogle"></span></button>
-    <button class="source-tab" onclick="setTab('newsapi')">NewsAPI <span class="tab-count" id="tabCountNewsapi"></span></button>
-    <button class="source-tab" onclick="setTab('gnews')">GNews <span class="tab-count" id="tabCountGnews"></span></button>
-  </div>
-
   <div class="sticky-toolbar" id="stickyToolbar">
     <div class="controls">
       <button class="fetch-btn" id="fetchBtn" onclick="fetchNews()">
-        ▶ МЭДЭЭ ТАТАХ
+        ▶ REFRESH
       </button>
       <div class="topic-filters">
-        <button class="filter-tag active" data-topic="all" onclick="setFilter(this, 'all')">БҮГД</button>
-        <button class="filter-tag" data-topic="model" onclick="setFilter(this, 'model')">ЗАГВАР</button>
-        <button class="filter-tag" data-topic="research" onclick="setFilter(this, 'research')">СУДАЛГАА</button>
-        <button class="filter-tag" data-topic="business" onclick="setFilter(this, 'business')">БИЗНЕС</button>
-        <button class="filter-tag" data-topic="safety" onclick="setFilter(this, 'safety')">АЮУЛГҮЙ БАЙДАЛ</button>
-        <button class="filter-tag" data-topic="tools" onclick="setFilter(this, 'tools')">ХЭРЭГСЭЛ</button>
+        <button class="filter-tag active" data-topic="all" onclick="setFilter(this, 'all')">ALL</button>
+        <button class="filter-tag" data-topic="model" onclick="setFilter(this, 'model')">MODEL</button>
+        <button class="filter-tag" data-topic="research" onclick="setFilter(this, 'research')">RESEARCH</button>
+        <button class="filter-tag" data-topic="business" onclick="setFilter(this, 'business')">BUSINESS</button>
+        <button class="filter-tag" data-topic="safety" onclick="setFilter(this, 'safety')">SAFETY</button>
+        <button class="filter-tag" data-topic="tools" onclick="setFilter(this, 'tools')">TOOLS</button>
       </div>
     </div>
   </div>
@@ -1081,7 +1075,22 @@ let allSourceData = { google: [], newsapi: [], gnews: [] };
 let currentFilter = 'all';
 let isLoading = false;
 let autoRefreshTimer = null;
-let activeTab = 'google';
+
+function mergeAllSources() {
+  const seen = new Set();
+  const merged = [];
+  let uid = 1;
+  for (const src of ['google', 'newsapi', 'gnews']) {
+    for (const item of (allSourceData[src] || [])) {
+      const key = (item.title || '').toLowerCase().replace(/[^a-z0-9\u0400-\u04ff]/g, '').slice(0, 50);
+      if (!seen.has(key)) {
+        seen.add(key);
+        merged.push({ ...item, id: uid++ });
+      }
+    }
+  }
+  return merged;
+}
 
 function esc(str) {
   const d = document.createElement('div');
@@ -1103,11 +1112,11 @@ const CATEGORY_COLORS = {
 };
 
 const CATEGORY_LABELS = {
-  'model': 'ЗАГВАР',
-  'research': 'СУДАЛГАА',
-  'business': 'БИЗНЕС',
-  'safety': 'АЮУЛГҮЙ БАЙДАЛ',
-  'tools': 'ХЭРЭГСЭЛ'
+  'model': 'MODEL',
+  'research': 'RESEARCH',
+  'business': 'BUSINESS',
+  'safety': 'SAFETY',
+  'tools': 'TOOLS'
 };
 
 function getFaviconUrl(urlOrSource) {
@@ -1147,7 +1156,7 @@ function init() {
   if (cached) {
     try {
       allSourceData = JSON.parse(cached);
-      allNews = allSourceData[activeTab] || [];
+      allNews = mergeAllSources();
       renderNews(allNews);
       updateStats(true);
     } catch (e) { /* ignore */ }
@@ -1166,7 +1175,6 @@ function init() {
   });
 
   updateCacheInfo();
-  updateTabCounts();
   updateLastUpdated();
   setupAutoRefresh();
   setupPullToRefresh();
@@ -1203,11 +1211,10 @@ async function loadFromServerCache() {
     if (hasNews) {
       localStorage.setItem(CACHE_KEY, JSON.stringify(allSourceData));
       localStorage.setItem(CACHE_TIME_KEY, new Date().toISOString());
-      allNews = allSourceData[activeTab] || [];
+      allNews = mergeAllSources();
       renderNews(allNews);
       updateStats(true);
       updateCacheInfo();
-      updateTabCounts();
       updateLastUpdated();
     }
   } catch (e) {
@@ -1293,7 +1300,7 @@ async function fetchNews() {
 
   document.getElementById('newsContainer').innerHTML = `
     <div class="loading">
-      <div class="loading-text">// 3 ЭХЭЭС AI МЭДЭЭ ЦУГЛУУЛЖ БАЙНА</div>
+      <div class="loading-text">// FETCHING AI NEWS FROM 3 SOURCES</div>
       <svg class="pulse-wave" viewBox="0 0 240 50">
         <path class="pulse-line" d="M0,25 L50,25 L70,25 L82,6 L95,44 L108,16 L116,34 L124,25 L170,25 L240,25" />
         <circle class="pulse-dot" cx="95" cy="25" r="3" />
@@ -1330,12 +1337,10 @@ async function fetchNews() {
     localStorage.setItem(CACHE_KEY, JSON.stringify(allSourceData));
     localStorage.setItem(CACHE_TIME_KEY, new Date().toISOString());
 
-    // Display active tab's news
-    allNews = allSourceData[activeTab] || [];
+    allNews = mergeAllSources();
     renderNews(allNews);
     updateStats(false);
     updateCacheInfo();
-    updateTabCounts();
     updateLastUpdated();
 
   } catch (err) {
@@ -1347,7 +1352,7 @@ async function fetchNews() {
     const cached = localStorage.getItem(CACHE_KEY);
     if (cached) {
       allSourceData = JSON.parse(cached);
-      allNews = allSourceData[activeTab] || [];
+      allNews = mergeAllSources();
       renderNews(allNews);
       updateStats(true);
     } else {
@@ -1362,7 +1367,7 @@ async function fetchNews() {
   }
 
   btn.disabled = false;
-  btn.textContent = '▶ МЭДЭЭ ШИНЭЧЛЭХ';
+  btn.textContent = '▶ REFRESH';
   isLoading = false;
 }
 
@@ -1428,28 +1433,6 @@ function updateStats(fromCache) {
   updateLastUpdated();
 }
 
-function setTab(tab) {
-  activeTab = tab;
-  // Update desktop tabs
-  document.querySelectorAll('.source-tab').forEach(t => t.classList.remove('active'));
-  const desktopTab = document.querySelector(`.source-tab[onclick="setTab('${tab}')"]`);
-  if (desktopTab) desktopTab.classList.add('active');
-
-  // Switch to this tab's cached data
-  allNews = allSourceData[activeTab] || [];
-  if (allNews.length) {
-    renderNews(allNews);
-    updateStats(true);
-  } else {
-    document.getElementById('newsContainer').innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">◈</div>
-        <div class="empty-text">МЭДЭЭ ТАТАХ товч дарна уу</div>
-        <div class="empty-sub">// 3 эх сурвалжаас нэгэн зэрэг татна</div>
-      </div>
-    `;
-  }
-}
 
 function setFilter(el, topic) {
   document.querySelectorAll('.filter-tag').forEach(t => t.classList.remove('active'));
@@ -1606,15 +1589,7 @@ function updateCacheInfo() {
   }
 }
 
-function updateTabCounts() {
-  const sources = { google: 'Google', newsapi: 'Newsapi', gnews: 'Gnews' };
-  for (const [key, label] of Object.entries(sources)) {
-    const count = (allSourceData[key] || []).length;
-    const text = count > 0 ? `(${count})` : '';
-    const tabEl = document.getElementById(`tabCount${label}`);
-    if (tabEl) tabEl.textContent = text;
-  }
-}
+function updateTabCounts() {}
 
 function updateLastUpdated() {
   const time = localStorage.getItem(CACHE_TIME_KEY);
