@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const rateLimit = require('express-rate-limit');
 const RSSParser = require('rss-parser');
 const webpush = require('web-push');
@@ -16,6 +17,8 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+app.use(express.static(path.join(__dirname, 'public')));
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,

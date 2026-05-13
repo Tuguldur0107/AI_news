@@ -1189,7 +1189,7 @@ function cleanCategory(cat) {
 }
 
 // Load settings
-const DEFAULT_API_URL = 'https://ainews-production-9c46.up.railway.app';
+const DEFAULT_API_URL = window.location.origin;
 
 function getApiUrl() {
   return localStorage.getItem(API_URL_KEY) || DEFAULT_API_URL;
