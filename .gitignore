@@ -2,3 +2,5 @@ node_modules/
 .env
 .DS_Store
 .claude/
+server/subscriptions.json
+server/public_local_backup/

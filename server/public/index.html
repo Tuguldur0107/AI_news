@@ -351,6 +351,12 @@
   .cat-business { background: rgba(255,51,102,0.1); color: var(--accent2); border: 1px solid rgba(255,51,102,0.2); }
   .cat-safety { background: rgba(255,165,0,0.1); color: #ffa500; border: 1px solid rgba(255,165,0,0.2); }
   .cat-tools { background: rgba(0,200,255,0.1); color: #00c8ff; border: 1px solid rgba(0,200,255,0.2); }
+  .cat-skill { background: rgba(255,105,180,0.1); color: #ff69b4; border: 1px solid rgba(255,105,180,0.25); }
+
+  /* Read state — already-opened articles fade slightly */
+  .news-card.read { opacity: 0.55; }
+  .news-card.read .card-title { color: var(--muted); }
+  .news-card.read:hover { opacity: 0.85; }
 
   .card-time {
     font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
@@ -1035,6 +1041,7 @@
     <button class="source-tab active" data-topic="ai" onclick="setTopic('ai')">AI</button>
     <button class="source-tab" data-topic="iot" onclick="setTopic('iot')">IoT</button>
     <button class="source-tab" data-topic="rfid" onclick="setTopic('rfid')">RFID</button>
+    <button class="source-tab" data-topic="dev" onclick="setTopic('dev')">DEV</button>
   </div>
 
   <div class="sticky-toolbar" id="stickyToolbar">
@@ -1070,16 +1077,19 @@
 
 <script>
 let allNews = [];
-let allSourceData = { google: [], newsapi: [], gnews: [], iot: [], rfid: [] };
+let allSourceData = { google: [], newsapi: [], gnews: [], iot: [], rfid: [], dev: [] };
 let currentFilter = 'all';
 let isLoading = false;
 let autoRefreshTimer = null;
 let activeTopic = 'ai';
 
+const ALL_SOURCES = ['google', 'newsapi', 'gnews', 'iot', 'rfid', 'dev'];
+
 const TOPIC_SOURCES = {
   ai:   ['google', 'newsapi', 'gnews'],
   iot:  ['iot'],
   rfid: ['rfid'],
+  dev:  ['dev'],
 };
 
 const TOPIC_FILTERS = {
@@ -1097,6 +1107,12 @@ const TOPIC_FILTERS = {
     { key: 'all', label: 'ALL' }, { key: 'hardware', label: 'HARDWARE' },
     { key: 'retail', label: 'RETAIL' }, { key: 'logistics', label: 'LOGISTICS' },
     { key: 'healthcare', label: 'HEALTHCARE' }, { key: 'standard', label: 'STANDARD' },
+  ],
+  dev:  [
+    { key: 'all', label: 'ALL' }, { key: 'agent', label: 'AGENT' },
+    { key: 'rag', label: 'RAG' }, { key: 'llm', label: 'LLM' },
+    { key: 'vlm', label: 'VLM' }, { key: 'tooling', label: 'TOOLING' },
+    { key: 'skill', label: 'SKILL' },
   ],
 };
 
@@ -1161,6 +1177,8 @@ const CATEGORY_COLORS = {
   'security': 'cat-safety', 'platform': 'cat-tools',
   'retail': 'cat-model', 'logistics': 'cat-research', 'healthcare': 'cat-business',
   'standard': 'cat-safety',
+  'agent': 'cat-model', 'rag': 'cat-research', 'llm': 'cat-business',
+  'vlm': 'cat-safety', 'tooling': 'cat-tools', 'skill': 'cat-skill',
 };
 
 const CATEGORY_LABELS = {
@@ -1170,7 +1188,36 @@ const CATEGORY_LABELS = {
   'security': 'SECURITY', 'platform': 'PLATFORM',
   'retail': 'RETAIL', 'logistics': 'LOGISTICS', 'healthcare': 'HEALTHCARE',
   'standard': 'STANDARD',
+  'agent': 'AGENT', 'rag': 'RAG', 'llm': 'LLM',
+  'vlm': 'VLM', 'tooling': 'TOOLING', 'skill': 'SKILL',
 };
+
+// ── Read-tracking (localStorage) ────────────────────────────────
+const READ_IDS_KEY = 'ai-pulse-read-ids';
+let readIds = new Set();
+try {
+  const raw = localStorage.getItem(READ_IDS_KEY);
+  if (raw) readIds = new Set(JSON.parse(raw));
+} catch (e) {}
+
+function articleHash(item) {
+  // Stable across server restarts: based on title + url, not session id
+  const base = ((item.title || '') + '|' + (item.url || '')).toLowerCase();
+  let h = 0;
+  for (let i = 0; i < base.length; i++) h = ((h << 5) - h + base.charCodeAt(i)) | 0;
+  return String(h);
+}
+
+function isRead(item) { return readIds.has(articleHash(item)); }
+
+function markRead(item) {
+  readIds.add(articleHash(item));
+  // Cap at 500 to avoid unbounded growth (FIFO)
+  if (readIds.size > 500) {
+    readIds = new Set(Array.from(readIds).slice(-500));
+  }
+  try { localStorage.setItem(READ_IDS_KEY, JSON.stringify(Array.from(readIds))); } catch (e) {}
+}
 
 function getFaviconUrl(urlOrSource) {
   try {
@@ -1257,7 +1304,7 @@ async function loadFromServerCache() {
     const data = await response.json();
 
     let hasNews = false;
-    for (const src of ['google', 'newsapi', 'gnews', 'iot', 'rfid']) {
+    for (const src of ALL_SOURCES) {
       if (data[src] && data[src].news && data[src].news.length > 0) {
         allSourceData[src] = data[src].news;
         hasNews = true;
@@ -1357,7 +1404,7 @@ async function fetchNews() {
 
   document.getElementById('newsContainer').innerHTML = `
     <div class="loading">
-      <div class="loading-text">// FETCHING ALL NEWS — AI · IoT · RFID</div>
+      <div class="loading-text">// FETCHING ALL NEWS — AI · IoT · RFID · DEV</div>
       <svg class="pulse-wave" viewBox="0 0 240 50">
         <path class="pulse-line" d="M0,25 L50,25 L70,25 L82,6 L95,44 L108,16 L116,34 L124,25 L170,25 L240,25" />
         <circle class="pulse-dot" cx="95" cy="25" r="3" />
@@ -1377,7 +1424,7 @@ async function fetchNews() {
 
     // Collect errors from individual sources
     const errors = [];
-    for (const src of ['google', 'newsapi', 'gnews', 'iot', 'rfid']) {
+    for (const src of ALL_SOURCES) {
       if (data[src]) {
         allSourceData[src] = data[src].news || [];
         if (data[src].error) errors.push(`${src}: ${data[src].error}`);
@@ -1459,8 +1506,10 @@ function renderNews(news) {
       dots += `<div class="importance-dot${filled ? ' filled' : ''}${high ? ' high' : ''}"></div>`;
     }
 
+    const readClass = isRead(item) ? ' read' : '';
+
     return `
-      <div class="news-card ${item.featured ? 'featured' : ''}"
+      <div class="news-card ${item.featured ? 'featured' : ''}${readClass}"
            style="animation-delay: ${delay}s"
            onclick="openModal(${Number(item.id)})">
         <div class="card-meta">
@@ -1501,6 +1550,7 @@ function setFilter(el, topic) {
 function openModal(id) {
   const item = allNews.find(n => Number(n.id) === Number(id));
   if (!item) return;
+  markRead(item);
   const cat = cleanCategory(item.category);
   const catClass = CATEGORY_COLORS[cat];
   const catLabel = CATEGORY_LABELS[cat];
@@ -1622,7 +1672,7 @@ function clearCache() {
   });
   updateCacheInfo();
   allNews = [];
-  allSourceData = { google: [], newsapi: [], gnews: [], iot: [], rfid: [] };
+  allSourceData = { google: [], newsapi: [], gnews: [], iot: [], rfid: [], dev: [] };
   document.getElementById('newsContainer').innerHTML = `
     <div class="empty-state">
       <div class="empty-icon">◈</div>
@@ -1638,9 +1688,9 @@ function updateCacheInfo() {
   const info = document.getElementById('cacheInfo');
   if (cached && time) {
     const data = JSON.parse(cached);
-    const total = ['google','newsapi','gnews','iot','rfid'].reduce((s,k) => s + (data[k]?.length || 0), 0);
+    const total = ALL_SOURCES.reduce((s,k) => s + (data[k]?.length || 0), 0);
     const d = new Date(time);
-    info.textContent = `${total} мэдээ (5 эх) • ${d.toLocaleDateString('mn-MN')} ${d.toLocaleTimeString('mn-MN', {hour:'2-digit', minute:'2-digit'})}`;
+    info.textContent = `${total} мэдээ (${ALL_SOURCES.length} эх) • ${d.toLocaleDateString('mn-MN')} ${d.toLocaleTimeString('mn-MN', {hour:'2-digit', minute:'2-digit'})}`;
   } else {
     info.textContent = 'Кэш хоосон';
   }

@@ -4,6 +4,7 @@ const path = require('path');
 const rateLimit = require('express-rate-limit');
 const RSSParser = require('rss-parser');
 const webpush = require('web-push');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -29,34 +30,142 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 // ── Web Push (VAPID) ─────────────────────────────────────────────
-const VAPID_PUBLIC_KEY  = process.env.VAPID_PUBLIC_KEY  || 'BHqLihY9JqAID42cSnokiRPM5jmIBnLHvmOF3IL_j7AFoBWGkNB8c-VxEZtnudLRrPQx6C9mxw3Ti3xBcQEiz5g';
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '9uGT3GA0mPEjMCLrpF2TnSU1I5nn4-zwN83pkUilC4U';
+const VAPID_PUBLIC_KEY  = process.env.VAPID_PUBLIC_KEY;
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
+const VAPID_CONTACT     = process.env.VAPID_CONTACT || 'mailto:admin@ainews.app';
 
-webpush.setVapidDetails('mailto:admin@ainews.app', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+let pushEnabled = false;
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(VAPID_CONTACT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+  pushEnabled = true;
+} else {
+  console.warn('⚠ VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY тохируулаагүй — push notification идэвхгүй.');
+}
 
+// ── Persistent subscription storage ─────────────────────────────
+// Each entry: { sub: PushSubscription, lastNotified: Set<articleKey> }
+// Storage path can be overridden via DATA_DIR (Railway volume mount recommended)
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+const SUBS_FILE = path.join(DATA_DIR, 'subscriptions.json');
 const subscriptions = new Map();
 
+function loadSubscriptions() {
+  try {
+    if (fs.existsSync(SUBS_FILE)) {
+      const raw = JSON.parse(fs.readFileSync(SUBS_FILE, 'utf8'));
+      for (const [endpoint, entry] of Object.entries(raw)) {
+        subscriptions.set(endpoint, {
+          sub: entry.sub,
+          lastNotified: new Set(entry.lastNotified || []),
+        });
+      }
+      console.log(`Loaded ${subscriptions.size} push subscriptions from disk`);
+    }
+  } catch (err) {
+    console.error('Failed to load subscriptions:', err.message);
+  }
+}
+
+let saveTimer = null;
+function saveSubscriptions() {
+  // Debounce writes — multiple changes within 2s collapse to one write
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try {
+      const out = {};
+      for (const [endpoint, entry] of subscriptions) {
+        // Cap remembered article keys per subscription to avoid unbounded growth
+        const recent = Array.from(entry.lastNotified).slice(-200);
+        out[endpoint] = { sub: entry.sub, lastNotified: recent };
+      }
+      fs.writeFileSync(SUBS_FILE, JSON.stringify(out), 'utf8');
+    } catch (err) {
+      console.error('Failed to save subscriptions:', err.message);
+    }
+  }, 2000);
+}
+
+loadSubscriptions();
+
 app.get('/api/vapid-public-key', (req, res) => {
+  if (!pushEnabled) return res.status(503).json({ error: 'Push disabled (VAPID keys not configured)' });
   res.json({ publicKey: VAPID_PUBLIC_KEY });
 });
 
 app.post('/api/subscribe', (req, res) => {
+  if (!pushEnabled) return res.status(503).json({ error: 'Push disabled' });
   const sub = req.body;
   if (!sub || !sub.endpoint) return res.status(400).json({ error: 'Invalid subscription' });
-  subscriptions.set(sub.endpoint, sub);
+  // Preserve lastNotified if subscription already exists (re-subscribe on page load)
+  const existing = subscriptions.get(sub.endpoint);
+  subscriptions.set(sub.endpoint, {
+    sub,
+    lastNotified: existing?.lastNotified || new Set(),
+  });
+  saveSubscriptions();
   res.json({ success: true });
 });
 
-async function sendPushToAll(payload) {
-  for (const [endpoint, sub] of subscriptions) {
-    webpush.sendNotification(sub, JSON.stringify(payload)).catch(err => {
-      if (err.statusCode === 410 || err.statusCode === 404) subscriptions.delete(endpoint);
-    });
+function articleKey(article) {
+  // Stable hash key from title + url for de-dup
+  const base = (article.title || '') + '|' + (article.url || '');
+  return base.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 60);
+}
+
+async function sendPushIfNew(article) {
+  if (!pushEnabled || subscriptions.size === 0) return;
+  const key = articleKey(article);
+  if (!key) return;
+
+  const payload = JSON.stringify({
+    title: 'AI PULSE — Шинэ мэдээ',
+    body: article.title,
+    url: article.url || '/',
+  });
+
+  const dead = [];
+  let anyChanged = false;
+  for (const [endpoint, entry] of subscriptions) {
+    if (entry.lastNotified.has(key)) continue;
+    try {
+      await webpush.sendNotification(entry.sub, payload);
+      entry.lastNotified.add(key);
+      anyChanged = true;
+    } catch (err) {
+      if (err.statusCode === 410 || err.statusCode === 404) {
+        dead.push(endpoint);
+      } else {
+        console.warn('Push failed for one endpoint:', err.message);
+      }
+    }
   }
+  for (const e of dead) subscriptions.delete(e);
+  if (anyChanged || dead.length) saveSubscriptions();
 }
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  const sourceHealth = {};
+  for (const src of ALL_SOURCES) {
+    const c = newsCache[src];
+    sourceHealth[src] = {
+      hasData: !!c?.data,
+      count: c?.data?.news?.length || 0,
+      ageMin: c?.timestamp ? Math.floor((Date.now() - c.timestamp) / 60000) : null,
+    };
+  }
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptimeSec: Math.floor(process.uptime()),
+    env: {
+      gemini: !!process.env.GEMINI_API_KEY,
+      newsapi: !!process.env.NEWSAPI_KEY,
+      gnews: !!process.env.GNEWS_KEY,
+      vapid: pushEnabled,
+    },
+    push: { enabled: pushEnabled, subscribers: subscriptions.size },
+    sources: sourceHealth,
+  });
 });
 
 // ── Server-side cache ───────────────────────────────────────────
@@ -67,7 +176,10 @@ const newsCache = {
   gnews:   { data: null, timestamp: 0 },
   iot:     { data: null, timestamp: 0 },
   rfid:    { data: null, timestamp: 0 },
+  dev:     { data: null, timestamp: 0 },
 };
+
+const ALL_SOURCES = ['google', 'newsapi', 'gnews', 'iot', 'rfid', 'dev'];
 
 function isCacheFresh(source) {
   const cache = newsCache[source];
@@ -79,6 +191,7 @@ const TOPIC_CATEGORIES = {
   ai:   '"model", "research", "business", "safety", "tools"',
   iot:  '"hardware", "connectivity", "industry", "security", "platform"',
   rfid: '"hardware", "retail", "logistics", "healthcare", "standard"',
+  dev:  '"agent", "rag", "llm", "vlm", "tooling", "skill"',
 };
 
 async function translateWithGemini(articles, topic = 'ai') {
@@ -206,6 +319,70 @@ async function fetchRFIDArticles() {
   });
 }
 
+// DEV: combine multiple developer-focused sources
+const DEV_FEEDS = [
+  {
+    name: 'HackerNews',
+    url: 'https://hnrss.org/newest?q=Claude+OR+LLM+OR+RAG+OR+%22AI+agent%22+OR+VLM+OR+MCP&count=20',
+  },
+  {
+    name: 'HuggingFace',
+    url: 'https://huggingface.co/blog/feed.xml',
+  },
+  {
+    name: 'Dev.to',
+    url: 'https://dev.to/feed/tag/ai',
+  },
+  {
+    name: 'GoogleNews-AI-Dev',
+    url: 'https://news.google.com/rss/search?q=%22Claude+AI%22+OR+%22Anthropic%22+OR+%22LangChain%22+OR+%22Retrieval+Augmented%22+OR+%22AI+agent%22+OR+%22large+language+model%22+OR+%22vision+language+model%22&hl=en-US&gl=US&ceid=US:en',
+  },
+];
+
+async function fetchDevArticles() {
+  const results = await Promise.allSettled(
+    DEV_FEEDS.map(async (feed) => {
+      const parsed = await rssParser.parseURL(feed.url);
+      return parsed.items.slice(0, 5).map((item) => {
+        // Google News titles have " - Source" suffix; strip it
+        let title = item.title || '';
+        let source = feed.name;
+        if (feed.name === 'GoogleNews-AI-Dev') {
+          const parts = title.split(' - ');
+          if (parts.length > 1) {
+            source = parts.pop().trim();
+            title = parts.join(' - ').trim();
+          }
+        }
+        return {
+          title,
+          summary: item.contentSnippet || item.content || title,
+          source,
+          url: item.link || '',
+          published: item.pubDate || '',
+        };
+      });
+    })
+  );
+
+  // Flatten + dedupe by normalized title prefix
+  const seen = new Set();
+  const merged = [];
+  for (const r of results) {
+    if (r.status !== 'fulfilled') continue;
+    for (const item of r.value) {
+      const key = (item.title || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40);
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        merged.push(item);
+      }
+    }
+  }
+
+  // Return top 10 (limit to keep Gemini token budget reasonable)
+  return merged.slice(0, 10);
+}
+
 async function fetchGnewsArticles() {
   const apiKey = process.env.GNEWS_KEY;
   if (!apiKey) throw new Error('GNEWS_KEY тохируулаагүй');
@@ -234,8 +411,9 @@ async function fetchAndCache(source) {
     gnews: fetchGnewsArticles,
     iot: fetchIoTArticles,
     rfid: fetchRFIDArticles,
+    dev: fetchDevArticles,
   };
-  const topicMap = { google: 'ai', newsapi: 'ai', gnews: 'ai', iot: 'iot', rfid: 'rfid' };
+  const topicMap = { google: 'ai', newsapi: 'ai', gnews: 'ai', iot: 'iot', rfid: 'rfid', dev: 'dev' };
   try {
     const articles = await fetchers[source]();
     const translated = await translateWithGemini(articles, topicMap[source]);
@@ -256,13 +434,7 @@ async function fetchAndCache(source) {
 // ── Main endpoint: fetch ALL sources at once ────────────────────
 app.post('/api/news/all', async (req, res) => {
   try {
-    const results = await Promise.all([
-      fetchAndCache('google'),
-      fetchAndCache('newsapi'),
-      fetchAndCache('gnews'),
-      fetchAndCache('iot'),
-      fetchAndCache('rfid'),
-    ]);
+    const results = await Promise.all(ALL_SOURCES.map(s => fetchAndCache(s)));
 
     const response_data = {
       timestamp: new Date().toISOString(),
@@ -277,19 +449,16 @@ app.post('/api/news/all', async (req, res) => {
       };
     }
 
-    // Send push notification if any source returned fresh data
+    // Send push notification for the most important fresh article (per-subscriber de-dup)
     if (subscriptions.size > 0) {
       const freshItem = results
         .filter(r => !r.cached && r.data?.news?.length > 0)
         .flatMap(r => r.data.news)
-        .sort((a, b) => b.importance - a.importance)[0];
+        .sort((a, b) => (b.importance || 0) - (a.importance || 0))[0];
 
       if (freshItem) {
-        sendPushToAll({
-          title: 'AI PULSE — Шинэ мэдээ',
-          body: freshItem.title,
-          url: freshItem.url || '/',
-        });
+        // Fire-and-forget; don't block the response
+        sendPushIfNew(freshItem).catch(err => console.error('Push error:', err.message));
       }
     }
 
@@ -334,6 +503,17 @@ app.post('/api/news/gnews', async (req, res) => {
   }
 });
 
+app.post('/api/news/dev', async (req, res) => {
+  try {
+    const result = await fetchAndCache('dev');
+    if (result.data) return res.json(result.data);
+    throw new Error(result.error);
+  } catch (err) {
+    console.error('DEV error:', err.message);
+    res.status(500).json({ error: `DEV алдаа: ${err.message}` });
+  }
+});
+
 // ── Return cached data only (no fetching) ──────────────────────
 app.get('/api/news/cached', (req, res) => {
   const response_data = {
@@ -341,7 +521,7 @@ app.get('/api/news/cached', (req, res) => {
     cacheTTL: CACHE_TTL / 60000,
   };
 
-  for (const source of ['google', 'newsapi', 'gnews', 'iot', 'rfid']) {
+  for (const source of ALL_SOURCES) {
     response_data[source] = {
       news: newsCache[source].data?.news || [],
       cached: true,
