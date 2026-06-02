@@ -1751,9 +1751,19 @@ function updateLastUpdated() {
   const el = document.getElementById('lastUpdated');
   if (time && el) {
     const d = new Date(time);
-    el.textContent = d.toLocaleTimeString('mn-MN', { hour: '2-digit', minute: '2-digit' });
+    const diffMin = Math.floor((Date.now() - d.getTime()) / 60000);
+    let label;
+    if (diffMin < 1) label = 'дөнгөж сая';
+    else if (diffMin < 60) label = `${diffMin} мин өмнө`;
+    else if (diffMin < 60 * 24) label = `${Math.floor(diffMin / 60)} цаг өмнө`;
+    else label = `${Math.floor(diffMin / (60 * 24))} өдөр өмнө`;
+    el.textContent = label;
+    el.title = d.toLocaleString('mn-MN');
   }
 }
+
+// Refresh the "last updated" badge every minute so users see it tick
+setInterval(updateLastUpdated, 60_000);
 
 // Scroll-to-top visibility
 function setupScrollHandlers() {

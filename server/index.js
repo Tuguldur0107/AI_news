@@ -432,6 +432,44 @@ async function fetchAndCache(source) {
 }
 
 // ── Main endpoint: fetch ALL sources at once ────────────────────
+// ── Ingest endpoint: local Llama pushes translated batches here ─
+// Body: { source: "google"|"newsapi"|"gnews"|"iot"|"rfid"|"dev",
+//         news: [{ id, title, summary, detail, category, source, url, importance, featured, timeAgo }, ...] }
+// Header: X-Ingest-Token: <INGEST_TOKEN>
+const INGEST_TOKEN = process.env.INGEST_TOKEN;
+app.post('/api/news/ingest', (req, res) => {
+  if (!INGEST_TOKEN) {
+    return res.status(503).json({ error: 'INGEST_TOKEN not configured on server' });
+  }
+  if (req.get('X-Ingest-Token') !== INGEST_TOKEN) {
+    return res.status(401).json({ error: 'Invalid ingest token' });
+  }
+  const { source, news } = req.body || {};
+  if (!source || !ALL_SOURCES.includes(source)) {
+    return res.status(400).json({ error: `source must be one of: ${ALL_SOURCES.join(', ')}` });
+  }
+  if (!Array.isArray(news) || news.length === 0) {
+    return res.status(400).json({ error: 'news must be a non-empty array' });
+  }
+
+  // Capture the most-important fresh article BEFORE overwriting cache
+  const prevSeen = new Set(
+    (newsCache[source].data?.news || []).map(n => articleKey(n))
+  );
+  const freshArticles = news.filter(n => !prevSeen.has(articleKey(n)));
+
+  newsCache[source] = { data: { news }, timestamp: Date.now() };
+
+  // Push notification for the single most-important fresh article
+  if (freshArticles.length > 0 && pushEnabled && subscriptions.size > 0) {
+    const top = [...freshArticles].sort((a, b) => (b.importance || 0) - (a.importance || 0))[0];
+    sendPushIfNew(top).catch(err => console.error('Push from ingest failed:', err.message));
+  }
+
+  console.log(`[ingest] ${source}: ${news.length} items (${freshArticles.length} new)`);
+  res.json({ ok: true, source, count: news.length, fresh: freshArticles.length });
+});
+
 app.post('/api/news/all', async (req, res) => {
   try {
     const results = await Promise.all(ALL_SOURCES.map(s => fetchAndCache(s)));

@@ -1,0 +1,16 @@
+{
+  "name": "ai-pulse-local-translator",
+  "version": "1.0.0",
+  "description": "Fetch RSS, translate via local Ollama, push to AI PULSE Railway server",
+  "main": "local-translator.js",
+  "scripts": {
+    "start": "node local-translator.js",
+    "test": "node local-translator.js --source=dev"
+  },
+  "dependencies": {
+    "rss-parser": "^3.13.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

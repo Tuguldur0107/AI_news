@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ai-pulse-v8';
+const CACHE_NAME = 'ai-pulse-v9';
 const STATIC_ASSETS = [
   './index.html',
   './manifest.json',

@@ -4,3 +4,5 @@ node_modules/
 .claude/
 server/subscriptions.json
 server/public_local_backup/
+scripts/node_modules/
+scripts/.env
