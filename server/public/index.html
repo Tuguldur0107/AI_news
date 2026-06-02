@@ -1013,6 +1013,16 @@
   </div>
 
   <div class="settings-group">
+    <div class="settings-label">УНШСАН МЭДЭЭ</div>
+    <label style="display:flex; align-items:center; gap:8px; margin-top:6px; cursor:pointer; font-size:11px; color:var(--text);">
+      <input type="checkbox" id="showReadToggle" style="width:16px; height:16px; accent-color: var(--accent); cursor:pointer;">
+      Уншсан мэдээг харуулах
+    </label>
+    <button class="fetch-btn" style="font-size:11px; padding:8px 16px; margin-top:8px" onclick="resetReadIds()">УНШСАН ТЭМДЭГИЙГ АРИЛГАХ</button>
+    <div class="settings-note" id="readInfo">0 уншсан</div>
+  </div>
+
+  <div class="settings-group">
     <div class="settings-label">МЭДЭЭНИЙ КЭШ</div>
     <button class="fetch-btn" style="font-size:11px; padding:8px 16px; margin-top:4px" onclick="clearCache()">КЭШИЙГ ЦЭВЭРЛЭХ</button>
     <div class="settings-note" id="cacheInfo">Кэш хоосон</div>
@@ -1194,11 +1204,26 @@ const CATEGORY_LABELS = {
 
 // ── Read-tracking (localStorage) ────────────────────────────────
 const READ_IDS_KEY = 'ai-pulse-read-ids';
+const SHOW_READ_KEY = 'ai-pulse-show-read';
 let readIds = new Set();
+let showRead = false; // default: hide already-read articles
 try {
   const raw = localStorage.getItem(READ_IDS_KEY);
   if (raw) readIds = new Set(JSON.parse(raw));
+  showRead = localStorage.getItem(SHOW_READ_KEY) === '1';
 } catch (e) {}
+
+function updateReadInfo() {
+  const el = document.getElementById('readInfo');
+  if (el) el.textContent = `${readIds.size} уншсан`;
+}
+
+function resetReadIds() {
+  readIds = new Set();
+  try { localStorage.removeItem(READ_IDS_KEY); } catch (e) {}
+  updateReadInfo();
+  if (allNews.length) renderNews(allNews);
+}
 
 function articleHash(item) {
   // Stable across server restarts: based on title + url, not session id
@@ -1217,6 +1242,7 @@ function markRead(item) {
     readIds = new Set(Array.from(readIds).slice(-500));
   }
   try { localStorage.setItem(READ_IDS_KEY, JSON.stringify(Array.from(readIds))); } catch (e) {}
+  updateReadInfo();
 }
 
 function getFaviconUrl(urlOrSource) {
@@ -1274,6 +1300,16 @@ function init() {
     localStorage.setItem(REFRESH_KEY, val);
     setupAutoRefresh();
   });
+
+  // Show-read toggle
+  const showReadEl = document.getElementById('showReadToggle');
+  showReadEl.checked = showRead;
+  showReadEl.addEventListener('change', function() {
+    showRead = this.checked;
+    try { localStorage.setItem(SHOW_READ_KEY, showRead ? '1' : '0'); } catch (e) {}
+    if (allNews.length) renderNews(allNews);
+  });
+  updateReadInfo();
 
   updateCacheInfo();
   updateLastUpdated();
@@ -1483,13 +1519,16 @@ async function fetchNews() {
 }
 
 function renderNews(news) {
-  const filtered = currentFilter === 'all' ? news : news.filter(n => cleanCategory(n.category) === currentFilter);
+  let filtered = currentFilter === 'all' ? news : news.filter(n => cleanCategory(n.category) === currentFilter);
+  if (!showRead) filtered = filtered.filter(n => !isRead(n));
 
   if (!filtered.length) {
+    const allReadButHidden = !showRead && news.some(n => isRead(n));
     document.getElementById('newsContainer').innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">◈</div>
-        <div class="empty-text">Энэ ангиллаар мэдээ олдсонгүй</div>
+        <div class="empty-text">${allReadButHidden ? 'Шинэ мэдээ алга — бүгдийг уншсан байна' : 'Энэ ангиллаар мэдээ олдсонгүй'}</div>
+        ${allReadButHidden ? '<div class="empty-sub">// Тохиргооноос "Уншсаныг харуулах"-ыг нээгээрэй</div>' : ''}
       </div>
     `;
     return;
