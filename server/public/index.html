@@ -1319,6 +1319,13 @@ async function loadFromServerCache() {
       updateStats(true);
       updateCacheInfo();
       updateLastUpdated();
+    } else {
+      // Server cache empty (cold start / restart) — trigger a live fetch
+      // so the user sees news without having to press REFRESH manually.
+      const hasLocalCache = Object.values(allSourceData).some(arr => arr.length > 0);
+      if (!hasLocalCache && navigator.onLine) {
+        fetchNews();
+      }
     }
   } catch (e) {
     // Server unreachable — localStorage cache already shown from init

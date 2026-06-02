@@ -546,7 +546,33 @@ app.get('/api/cache-status', (req, res) => {
   res.json({ cacheTTL: CACHE_TTL / 60000, sources: status });
 });
 
+// ── Background warm-up + auto-refresh ──────────────────────────
+// Sequential fetch so we don't burst Gemini quota in parallel
+async function warmCacheSequential(reason) {
+  console.log(`[warm-up] start (${reason})`);
+  for (const src of ALL_SOURCES) {
+    if (isCacheFresh(src)) {
+      console.log(`[warm-up] ${src}: skipped (fresh)`);
+      continue;
+    }
+    try {
+      const r = await fetchAndCache(src);
+      const n = r.data?.news?.length || 0;
+      console.log(`[warm-up] ${src}: ${n} items${r.error ? ' (err: ' + r.error + ')' : ''}`);
+    } catch (err) {
+      console.error(`[warm-up] ${src} failed:`, err.message);
+    }
+  }
+  console.log('[warm-up] done');
+}
+
 app.listen(PORT, () => {
   console.log(`AI PULSE server → http://localhost:${PORT}`);
   console.log(`Cache TTL: ${CACHE_TTL / 60000} minutes`);
+
+  // Warm up cache 10s after boot (let the platform stabilize first)
+  setTimeout(() => warmCacheSequential('startup').catch(e => console.error('Warm-up error:', e.message)), 10_000);
+
+  // Auto-refresh: re-warm every CACHE_TTL so cache never goes empty
+  setInterval(() => warmCacheSequential('scheduled').catch(e => console.error('Auto-refresh error:', e.message)), CACHE_TTL);
 });
