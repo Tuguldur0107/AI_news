@@ -1206,11 +1206,13 @@ const CATEGORY_LABELS = {
 const READ_IDS_KEY = 'ai-pulse-read-ids';
 const SHOW_READ_KEY = 'ai-pulse-show-read';
 let readIds = new Set();
-let showRead = false; // default: hide already-read articles
+// Default: show everything (read just fades). User can opt-in to hide.
+let showRead = true;
 try {
   const raw = localStorage.getItem(READ_IDS_KEY);
   if (raw) readIds = new Set(JSON.parse(raw));
-  showRead = localStorage.getItem(SHOW_READ_KEY) === '1';
+  const stored = localStorage.getItem(SHOW_READ_KEY);
+  if (stored !== null) showRead = stored === '1';
 } catch (e) {}
 
 function updateReadInfo() {
