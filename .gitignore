@@ -3,6 +3,7 @@ node_modules/
 .DS_Store
 .claude/
 server/subscriptions.json
+server/news-cache.json
 server/public_local_backup/
 scripts/node_modules/
 scripts/.env

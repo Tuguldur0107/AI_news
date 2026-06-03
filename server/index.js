@@ -181,6 +181,41 @@ const newsCache = {
 
 const ALL_SOURCES = ['google', 'newsapi', 'gnews', 'iot', 'rfid', 'dev'];
 
+// ── Persist news cache to disk so restarts don't blank the feed ──
+const CACHE_FILE = path.join(DATA_DIR, 'news-cache.json');
+
+function loadNewsCache() {
+  try {
+    if (fs.existsSync(CACHE_FILE)) {
+      const raw = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
+      let loaded = 0;
+      for (const src of ALL_SOURCES) {
+        if (raw[src]?.data?.news?.length > 0) {
+          newsCache[src] = { data: raw[src].data, timestamp: raw[src].timestamp || 0 };
+          loaded += raw[src].data.news.length;
+        }
+      }
+      console.log(`Loaded ${loaded} cached articles from disk`);
+    }
+  } catch (err) {
+    console.error('Failed to load news cache:', err.message);
+  }
+}
+
+let cacheSaveTimer = null;
+function saveNewsCache() {
+  if (cacheSaveTimer) clearTimeout(cacheSaveTimer);
+  cacheSaveTimer = setTimeout(() => {
+    try {
+      fs.writeFileSync(CACHE_FILE, JSON.stringify(newsCache), 'utf8');
+    } catch (err) {
+      console.error('Failed to save news cache:', err.message);
+    }
+  }, 2000);
+}
+
+loadNewsCache();
+
 function isCacheFresh(source) {
   const cache = newsCache[source];
   return cache.data && cache.data.news && cache.data.news.length > 0 && (Date.now() - cache.timestamp < CACHE_TTL);
@@ -420,6 +455,7 @@ async function fetchAndCache(source) {
     // Only cache if we got actual results
     if (translated?.news?.length > 0) {
       newsCache[source] = { data: translated, timestamp: Date.now() };
+      saveNewsCache();
     }
     return { source, data: translated, cached: false };
   } catch (err) {
@@ -459,6 +495,7 @@ app.post('/api/news/ingest', (req, res) => {
   const freshArticles = news.filter(n => !prevSeen.has(articleKey(n)));
 
   newsCache[source] = { data: { news }, timestamp: Date.now() };
+  saveNewsCache();
 
   // Push notification for the single most-important fresh article
   if (freshArticles.length > 0 && pushEnabled && subscriptions.size > 0) {
