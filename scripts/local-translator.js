@@ -1,13 +1,14 @@
-// AI PULSE — local translator
-// Runs on a personal machine, fetches RSS, translates with a local Ollama
-// model, and pushes each batch to the Railway server's /api/news/ingest
-// endpoint. Designed to be triggered by Windows Task Scheduler / cron.
+// AI PULSE — local translator (Ollama + Google Translate hybrid)
+// Pipeline:
+//   1. Fetch RSS for each source
+//   2. Ollama (qwen2.5:14b) — structure articles in English: title, summary,
+//      detail, category, importance, featured
+//   3. Google Translate (@vitalets) — translate title/summary/detail to
+//      Mongolian; keep category/importance/source/url/featured as-is
+//   4. POST translated batch to Railway /api/news/ingest
 //
-// Quickstart:
-//   1. cp .env.example .env  &&  edit .env
-//   2. npm install
-//   3. npm start           # all sources
-//      npm test            # only the DEV source (fast smoke test)
+// Runs on a personal machine, triggered by Windows Task Scheduler / cron.
+// See README.md for setup.
 
 const fs = require('fs');
 const path = require('path');
@@ -33,7 +34,6 @@ if (!INGEST_TOKEN) {
   process.exit(1);
 }
 
-// Parse CLI override e.g. --source=dev
 const cliSource = (process.argv.find(a => a.startsWith('--source=')) || '').split('=')[1];
 const SOURCES_FILTER = cliSource
   ? [cliSource]
@@ -45,31 +45,31 @@ const rssParser = new RSSParser();
 
 // ── Categories per topic (kept in sync with server/index.js) ─────
 const TOPIC_CATEGORIES = {
-  ai:   '"model", "research", "business", "safety", "tools"',
-  iot:  '"hardware", "connectivity", "industry", "security", "platform"',
-  rfid: '"hardware", "retail", "logistics", "healthcare", "standard"',
-  dev:  '"agent", "rag", "llm", "vlm", "tooling", "skill"',
+  ai:   ['model', 'research', 'business', 'safety', 'tools'],
+  iot:  ['hardware', 'connectivity', 'industry', 'security', 'platform'],
+  rfid: ['hardware', 'retail', 'logistics', 'healthcare', 'standard'],
+  dev:  ['agent', 'rag', 'llm', 'vlm', 'tooling', 'skill'],
 };
 const SOURCE_TOPIC = { google: 'ai', newsapi: 'ai', gnews: 'ai', iot: 'iot', rfid: 'rfid', dev: 'dev' };
 
-// ── RSS fetchers (mirrors of server/index.js) ────────────────────
+// ── RSS fetchers ─────────────────────────────────────────────────
+function stripGoogleSuffix(item) {
+  const parts = (item.title || '').split(' - ');
+  const source = parts.length > 1 ? parts.pop().trim() : 'Google News';
+  const title = parts.join(' - ').trim();
+  return { title, summary: item.contentSnippet || item.content || title, source, url: item.link || '', published: item.pubDate || '' };
+}
 async function fetchGoogle() {
-  const feed = await rssParser.parseURL(
-    'https://news.google.com/rss/search?q=artificial+intelligence&hl=en-US&gl=US&ceid=US:en'
-  );
-  return feed.items.slice(0, 6).map(stripGoogleSuffix);
+  const f = await rssParser.parseURL('https://news.google.com/rss/search?q=artificial+intelligence&hl=en-US&gl=US&ceid=US:en');
+  return f.items.slice(0, 6).map(stripGoogleSuffix);
 }
 async function fetchIoT() {
-  const feed = await rssParser.parseURL(
-    'https://news.google.com/rss/search?q=IoT+Internet+of+Things+smart+device&hl=en-US&gl=US&ceid=US:en'
-  );
-  return feed.items.slice(0, 8).map(stripGoogleSuffix);
+  const f = await rssParser.parseURL('https://news.google.com/rss/search?q=IoT+Internet+of+Things+smart+device&hl=en-US&gl=US&ceid=US:en');
+  return f.items.slice(0, 8).map(stripGoogleSuffix);
 }
 async function fetchRFID() {
-  const feed = await rssParser.parseURL(
-    'https://news.google.com/rss/search?q=RFID+technology+tracking+tag&hl=en-US&gl=US&ceid=US:en'
-  );
-  return feed.items.slice(0, 8).map(stripGoogleSuffix);
+  const f = await rssParser.parseURL('https://news.google.com/rss/search?q=RFID+technology+tracking+tag&hl=en-US&gl=US&ceid=US:en');
+  return f.items.slice(0, 8).map(stripGoogleSuffix);
 }
 async function fetchNewsapi() {
   const apiKey = process.env.NEWSAPI_KEY;
@@ -103,12 +103,11 @@ const DEV_FEEDS = [
   { name: 'Dev.to', url: 'https://dev.to/feed/tag/ai' },
   { name: 'GoogleNews-AI-Dev', url: 'https://news.google.com/rss/search?q=%22Claude+AI%22+OR+%22Anthropic%22+OR+%22LangChain%22+OR+%22Retrieval+Augmented%22+OR+%22AI+agent%22+OR+%22large+language+model%22+OR+%22vision+language+model%22&hl=en-US&gl=US&ceid=US:en' },
 ];
-
 async function fetchDev() {
   const results = await Promise.allSettled(
     DEV_FEEDS.map(async (f) => {
       const p = await rssParser.parseURL(f.url);
-      return p.items.slice(0, 5).map((item) => {
+      return p.items.slice(0, 3).map((item) => {
         let title = item.title || '';
         let source = f.name;
         if (f.name === 'GoogleNews-AI-Dev') {
@@ -127,14 +126,7 @@ async function fetchDev() {
       if (key && !seen.has(key)) { seen.add(key); merged.push(item); }
     }
   }
-  return merged.slice(0, 10);
-}
-
-function stripGoogleSuffix(item) {
-  const parts = (item.title || '').split(' - ');
-  const source = parts.length > 1 ? parts.pop().trim() : 'Google News';
-  const title = parts.join(' - ').trim();
-  return { title, summary: item.contentSnippet || item.content || title, source, url: item.link || '', published: item.pubDate || '' };
+  return merged.slice(0, 6); // Reduced from 10 to keep Ollama batches manageable on partial-VRAM GPUs
 }
 
 const FETCHERS = {
@@ -142,25 +134,34 @@ const FETCHERS = {
   iot: fetchIoT, rfid: fetchRFID, dev: fetchDev,
 };
 
-// ── Ollama translation ───────────────────────────────────────────
-async function translateWithOllama(articles, topic) {
+// ── Ollama: structure articles in ENGLISH ────────────────────────
+async function enrichWithOllama(articles, topic) {
   const categories = TOPIC_CATEGORIES[topic] || TOPIC_CATEGORIES.ai;
   const articleList = articles.map((a, i) =>
-    `${i + 1}. ${a.title} [${a.source || ''}] URL:${a.url || ''}`
+    `${i + 1}. ${a.title} | source: ${a.source || ''} | url: ${a.url || ''} | snippet: ${(a.summary || '').slice(0, 200)}`
   ).join('\n');
 
-  const prompt = `Англи ${topic.toUpperCase()} мэдээг монголоор орчуул. JSON хариулна уу.
+  const prompt = `You are a JSON-only news structuring assistant. Output STRICT valid JSON, no markdown fences.
 
+Below are ${articles.length} English news items on the topic "${topic.toUpperCase()}". For each item produce:
+- title: keep the original English title
+- summary: 2-3 sentences in ENGLISH
+- detail: 3-4 sentences in ENGLISH
+- category: exactly ONE of: ${categories.map(c => `"${c}"`).join(', ')}
+- source: keep original
+- url: keep original
+- importance: integer 1-10 (rate how impactful)
+- featured: boolean — set true for the SINGLE most important item only, rest false
+- timeAgo: "recently"
+
+Items:
 ${articleList}
 
-{"news":[{"id":1,"title":"Монгол гарчиг","summary":"2-3 өгүүлбэр","detail":"3-4 өгүүлбэр","category":"...","source":"Source Name","url":"URL хэвээр","importance":8,"featured":false,"timeAgo":"2 цагийн өмнө"}]}
-
-ЗААВАЛ: category нь ЗӨВХӨН нэг утга авна: ${categories}. Хэзээ ч "|" тэмдэг бүү ашигла.
-featured=true зөвхөн 2-т. url хэвээр хадгал.`;
+Output schema (return EXACTLY this shape — and remember everything in ENGLISH):
+{"news":[{"id":1,"title":"...","summary":"...","detail":"...","category":"...","source":"...","url":"...","importance":8,"featured":false,"timeAgo":"recently"}]}`;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);
-
   const r = await fetch(`${OLLAMA_URL}/api/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -170,7 +171,12 @@ featured=true зөвхөн 2-т. url хэвээр хадгал.`;
       prompt,
       stream: false,
       format: 'json',
-      options: { temperature: 0.5, num_predict: 4096 },
+      options: {
+        temperature: 0.3,
+        num_predict: 2048,
+        num_ctx: 4096, // smaller context = stays on GPU for partial-VRAM setups
+      },
+      keep_alive: '30m', // hold model in memory for the rest of this run
     }),
   }).finally(() => clearTimeout(timer));
 
@@ -179,11 +185,68 @@ featured=true зөвхөн 2-т. url хэвээр хадгал.`;
   const text = (data.response || '').replace(/```json|```/g, '').trim();
   let parsed;
   try { parsed = JSON.parse(text); }
-  catch (e) { throw new Error('Ollama returned invalid JSON: ' + text.slice(0, 200)); }
+  catch (e) { throw new Error('Ollama JSON parse fail: ' + text.slice(0, 200)); }
   if (!parsed.news || !Array.isArray(parsed.news)) {
-    throw new Error('Ollama response missing news[]: ' + JSON.stringify(parsed).slice(0, 200));
+    throw new Error('Ollama missing news[]: ' + JSON.stringify(parsed).slice(0, 200));
+  }
+
+  // Normalize: category may come back as array — coerce to first valid
+  const validCats = new Set(categories);
+  for (const n of parsed.news) {
+    if (Array.isArray(n.category)) n.category = n.category[0] || categories[0];
+    if (typeof n.category === 'string' && n.category.includes('|')) n.category = n.category.split('|')[0].trim();
+    if (!validCats.has(n.category)) n.category = categories[0];
   }
   return parsed.news;
+}
+
+// ── Google Translate: EN → MN ────────────────────────────────────
+let translateFn = null;
+async function getTranslator() {
+  if (!translateFn) {
+    const mod = await import('@vitalets/google-translate-api');
+    translateFn = mod.translate;
+  }
+  return translateFn;
+}
+
+// Translate one string with simple retry on rate-limit/network glitches
+async function translateOne(text, attempt = 0) {
+  if (!text) return text;
+  const translate = await getTranslator();
+  try {
+    const r = await translate(text, { to: 'mn' });
+    return r.text;
+  } catch (err) {
+    if (attempt < 2) {
+      await new Promise(r => setTimeout(r, 500 + attempt * 1000));
+      return translateOne(text, attempt + 1);
+    }
+    console.warn(`  translate fail (kept EN): ${err.message}`);
+    return text; // last resort: keep English so the article isn't lost
+  }
+}
+
+async function translateNewsToMongolian(news) {
+  // Per-article sequential, but the 3 fields go in parallel — keeps Google
+  // happy while not stalling on long batches. 10 articles ≈ 6-10 seconds.
+  const out = [];
+  for (let i = 0; i < news.length; i++) {
+    const n = news[i];
+    const [title, summary, detail] = await Promise.all([
+      translateOne(n.title),
+      translateOne(n.summary),
+      translateOne(n.detail),
+    ]);
+    out.push({
+      ...n,
+      title, summary, detail,
+      timeAgo: 'саяхан', // Google translates "recently" inconsistently
+    });
+    process.stdout.write('.');
+  }
+  process.stdout.write('\n');
+  return out;
 }
 
 // ── Ingest to Railway ────────────────────────────────────────────
@@ -204,26 +267,34 @@ async function pushToRailway(source, news) {
 async function processSource(source) {
   const topic = SOURCE_TOPIC[source];
   if (!topic) throw new Error(`Unknown source: ${source}`);
-  console.log(`[${source}] fetching RSS…`);
+
+  console.log(`\n[${source}] fetching RSS…`);
   const articles = await FETCHERS[source]();
   if (!articles || articles.length === 0) {
     console.log(`[${source}] 0 articles, skip`);
     return;
   }
+
   console.log(`[${source}] ${articles.length} articles → Ollama (${OLLAMA_MODEL})`);
   const t0 = Date.now();
-  const news = await translateWithOllama(articles, topic);
-  console.log(`[${source}] translated in ${((Date.now() - t0) / 1000).toFixed(1)}s → ${news.length} items`);
-  const result = await pushToRailway(source, news);
+  const enriched = await enrichWithOllama(articles, topic);
+  console.log(`[${source}] structured in ${((Date.now() - t0) / 1000).toFixed(1)}s → ${enriched.length} items`);
+
+  const t1 = Date.now();
+  const translated = await translateNewsToMongolian(enriched);
+  console.log(`[${source}] translated in ${((Date.now() - t1) / 1000).toFixed(1)}s`);
+
+  const result = await pushToRailway(source, translated);
   console.log(`[${source}] ingested:`, result);
 }
 
 (async () => {
   console.log(`AI PULSE local translator → ${RAILWAY_URL}`);
+  console.log(`Pipeline: Ollama (${OLLAMA_MODEL}) [EN structuring] → Google Translate [EN→MN]`);
   console.log(`Sources: ${SOURCES_FILTER.join(', ')}`);
   for (const src of SOURCES_FILTER) {
     try { await processSource(src); }
     catch (err) { console.error(`[${src}] FAILED:`, err.message); }
   }
-  console.log('Done.');
+  console.log('\nDone.');
 })();
