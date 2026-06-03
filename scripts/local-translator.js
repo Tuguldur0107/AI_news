@@ -210,50 +210,104 @@ async function getTranslator() {
   return translateFn;
 }
 
-// Sentinel that survives Google Translate (uppercase, no punctuation) —
-// used to join title/summary/detail into ONE request per article so we
-// burn 1 quota unit instead of 3.
-const SEP = ' QQXQQ ';
+// Sentinel — Markdown-style separator that BOTH Google Translate and
+// MyMemory preserve verbatim. Used to bundle title/summary/detail into
+// one request per article (1/3 the quota).
+const SEP = '\n---\n';
+const SPLIT_RE = /\s*\n?-{3,}\n?\s*/;
 
+// Translate via Google Translate (may rate-limit per IP)
+async function translateGoogle(text) {
+  const translate = await getTranslator();
+  const r = await translate(text, { to: 'mn' });
+  return r.text;
+}
+
+// Translate via MyMemory — public free tier, no key required, ~5K words/day
+// anonymous. Used as fallback when Google's IP rate limit kicks in.
+async function translateMyMemory(text) {
+  const url = 'https://api.mymemory.translated.net/get?langpair=en|mn&q=' + encodeURIComponent(text);
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`MyMemory ${r.status}`);
+  const j = await r.json();
+  const out = j.responseData?.translatedText;
+  if (!out || j.responseStatus >= 400) {
+    throw new Error(`MyMemory: ${j.responseDetails || 'no translation'}`);
+  }
+  return out;
+}
+
+// translateOne — try Google first (faster, better quality), fall back to
+// MyMemory on rate-limit, keep English as last resort
+let googleBlockedUntil = 0;
 async function translateOne(text, attempt = 0) {
   if (!text) return text;
-  const translate = await getTranslator();
+
+  // If Google was just rate-limited, skip straight to MyMemory for a while
+  if (Date.now() < googleBlockedUntil) {
+    try { return await translateMyMemory(text); }
+    catch (err) {
+      console.warn(`  MyMemory fail (kept EN): ${(err.message || '').slice(0, 100)}`);
+      return text;
+    }
+  }
+
   try {
-    const r = await translate(text, { to: 'mn' });
-    return r.text;
+    return await translateGoogle(text);
   } catch (err) {
-    // 429-style failures: back off exponentially up to 4 attempts
     const rateLimited = /Too Many Requests|429/i.test(err.message || '');
-    if (attempt < (rateLimited ? 4 : 2)) {
-      const wait = rateLimited ? 3000 * Math.pow(2, attempt) : 500 + attempt * 1000;
-      await new Promise(r => setTimeout(r, wait));
+    if (rateLimited) {
+      // Stop hammering Google for 15 minutes; switch to MyMemory for now
+      googleBlockedUntil = Date.now() + 15 * 60_000;
+      try {
+        const t = await translateMyMemory(text);
+        if (attempt === 0) console.warn('  → switched to MyMemory (Google rate-limited)');
+        return t;
+      } catch (mmErr) {
+        console.warn(`  both translators failed (kept EN): ${(mmErr.message || '').slice(0, 100)}`);
+        return text;
+      }
+    }
+    // Non-rate-limit Google failure: small retry then keep EN
+    if (attempt < 2) {
+      await new Promise(r => setTimeout(r, 500 + attempt * 1000));
       return translateOne(text, attempt + 1);
     }
     console.warn(`  translate fail (kept EN): ${(err.message || '').slice(0, 100)}`);
-    return text; // last resort: keep English so the article isn't lost
+    return text;
   }
 }
 
 async function translateNewsToMongolian(news) {
-  // ONE Google request per article (3 fields joined with a sentinel).
-  // Sequential with a 250ms gap to stay well under Google's rate limit.
+  // ONE translation request per article (3 fields joined with markdown
+  // separators). Sequential with a 300ms gap to stay friendly to both
+  // backends.
   const out = [];
   for (let i = 0; i < news.length; i++) {
     const n = news[i];
     const combined = `${n.title || ''}${SEP}${n.summary || ''}${SEP}${n.detail || ''}`;
     const translated = await translateOne(combined);
-    const parts = translated.split(/\s*QQXQQ\s*/);
-    // Defensive: if Google munged the sentinel, fall back to the original
-    const [title, summary, detail] = parts.length >= 3
-      ? [parts[0].trim(), parts[1].trim(), parts.slice(2).join(' ').trim()]
-      : [n.title, n.summary, n.detail];
+    const parts = translated.split(SPLIT_RE);
+    // Defensive: if the backend munged the sentinel, fall back per-field
+    let title, summary, detail;
+    if (parts.length >= 3) {
+      [title, summary] = [parts[0].trim(), parts[1].trim()];
+      detail = parts.slice(2).join(' ').trim();
+    } else {
+      // Sentinel didn't survive — translate each piece individually
+      [title, summary, detail] = await Promise.all([
+        translateOne(n.title),
+        translateOne(n.summary),
+        translateOne(n.detail),
+      ]);
+    }
     out.push({
       ...n,
       title, summary, detail,
-      timeAgo: 'саяхан', // Google translates "recently" inconsistently
+      timeAgo: 'саяхан', // backends translate "recently" inconsistently
     });
     process.stdout.write('.');
-    if (i < news.length - 1) await new Promise(r => setTimeout(r, 250));
+    if (i < news.length - 1) await new Promise(r => setTimeout(r, 300));
   }
   process.stdout.write('\n');
   return out;
