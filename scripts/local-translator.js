@@ -173,8 +173,8 @@ Output schema (return EXACTLY this shape — and remember everything in ENGLISH)
       format: 'json',
       options: {
         temperature: 0.3,
-        num_predict: 2048,
-        num_ctx: 4096, // smaller context = stays on GPU for partial-VRAM setups
+        num_predict: 4096, // upped from 2048 — 8-article batches were truncating mid-JSON
+        num_ctx: 8192,     // upped from 4096 to fit the larger prompt+output
       },
       keep_alive: '30m', // hold model in memory for the rest of this run
     }),
@@ -210,7 +210,11 @@ async function getTranslator() {
   return translateFn;
 }
 
-// Translate one string with simple retry on rate-limit/network glitches
+// Sentinel that survives Google Translate (uppercase, no punctuation) —
+// used to join title/summary/detail into ONE request per article so we
+// burn 1 quota unit instead of 3.
+const SEP = ' QQXQQ ';
+
 async function translateOne(text, attempt = 0) {
   if (!text) return text;
   const translate = await getTranslator();
@@ -218,32 +222,38 @@ async function translateOne(text, attempt = 0) {
     const r = await translate(text, { to: 'mn' });
     return r.text;
   } catch (err) {
-    if (attempt < 2) {
-      await new Promise(r => setTimeout(r, 500 + attempt * 1000));
+    // 429-style failures: back off exponentially up to 4 attempts
+    const rateLimited = /Too Many Requests|429/i.test(err.message || '');
+    if (attempt < (rateLimited ? 4 : 2)) {
+      const wait = rateLimited ? 3000 * Math.pow(2, attempt) : 500 + attempt * 1000;
+      await new Promise(r => setTimeout(r, wait));
       return translateOne(text, attempt + 1);
     }
-    console.warn(`  translate fail (kept EN): ${err.message}`);
+    console.warn(`  translate fail (kept EN): ${(err.message || '').slice(0, 100)}`);
     return text; // last resort: keep English so the article isn't lost
   }
 }
 
 async function translateNewsToMongolian(news) {
-  // Per-article sequential, but the 3 fields go in parallel — keeps Google
-  // happy while not stalling on long batches. 10 articles ≈ 6-10 seconds.
+  // ONE Google request per article (3 fields joined with a sentinel).
+  // Sequential with a 250ms gap to stay well under Google's rate limit.
   const out = [];
   for (let i = 0; i < news.length; i++) {
     const n = news[i];
-    const [title, summary, detail] = await Promise.all([
-      translateOne(n.title),
-      translateOne(n.summary),
-      translateOne(n.detail),
-    ]);
+    const combined = `${n.title || ''}${SEP}${n.summary || ''}${SEP}${n.detail || ''}`;
+    const translated = await translateOne(combined);
+    const parts = translated.split(/\s*QQXQQ\s*/);
+    // Defensive: if Google munged the sentinel, fall back to the original
+    const [title, summary, detail] = parts.length >= 3
+      ? [parts[0].trim(), parts[1].trim(), parts.slice(2).join(' ').trim()]
+      : [n.title, n.summary, n.detail];
     out.push({
       ...n,
       title, summary, detail,
       timeAgo: 'саяхан', // Google translates "recently" inconsistently
     });
     process.stdout.write('.');
+    if (i < news.length - 1) await new Promise(r => setTimeout(r, 250));
   }
   process.stdout.write('\n');
   return out;
