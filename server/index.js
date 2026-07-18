@@ -540,7 +540,16 @@ async function fetchAndCache(source) {
   const topicMap = { google: 'ai', newsapi: 'ai', gnews: 'ai', iot: 'iot', rfid: 'rfid', dev: 'dev', trending: 'trending', edge: 'edge' };
   try {
     const articles = await fetchers[source]();
-    const translated = await translateWithGemini(articles, topicMap[source]);
+    let translated;
+    try {
+      translated = await translateWithGemini(articles, topicMap[source]);
+    } catch (trErr) {
+      // No Gemini key / quota hit → serve the raw ENGLISH articles instead of
+      // an empty feed. Mongolian arrives when the local translator ingests or
+      // the key is configured — ingest simply overwrites this cache.
+      console.warn(`[${source}] translate unavailable (${trErr.message}) — serving EN fallback`);
+      translated = { news: fallbackStructure(articles, topicMap[source]) };
+    }
     // Only cache if we got actual results
     if (translated?.news?.length > 0) {
       newsCache[source] = { data: translated, timestamp: Date.now() };
@@ -554,6 +563,24 @@ async function fetchAndCache(source) {
     }
     return { source, data: null, error: err.message };
   }
+}
+
+// Raw articles → the UI's news shape, untranslated (EN). Importance follows
+// the source order (trending arrives popularity-ranked), first item featured.
+function fallbackStructure(articles, topic) {
+  const firstCat = (TOPIC_CATEGORIES[topic] || TOPIC_CATEGORIES.ai).split(',')[0].replace(/["\s]/g, '');
+  return (articles || []).map((a, i) => ({
+    id: i + 1,
+    title: a.title || '',
+    summary: (a.summary || a.title || '').slice(0, 300),
+    detail: a.summary || a.title || '',
+    category: firstCat,
+    source: a.source || '',
+    url: a.url || '',
+    importance: Math.max(1, Math.min(10, 9 - i)),
+    featured: i === 0,
+    timeAgo: 'саяхан',
+  }));
 }
 
 // ── Main endpoint: fetch ALL sources at once ────────────────────

@@ -457,7 +457,7 @@ async function fetchNews(){
     const data=await r.json(); if(data.error) throw new Error(data.error);
     const errors=[];
     for(const s of ALL_SOURCES) if(data[s]){ allSourceData[s]=data[s].news||[]; if(data[s].error)errors.push(s); }
-    if(errors.length && errors.length<4){ err.textContent='⚠ Зарим эх сурвалж алдаатай: '+errors.join(', '); err.classList.add('on'); }
+    if(errors.length){ err.textContent='⚠ '+(errors.length>=ALL_SOURCES.length?'Бүх эх сурвалж алдаатай':'Зарим эх сурвалж алдаатай')+': '+errors.join(', '); err.classList.add('on'); }
     persist(); allNews=mergeAllSources(); renderNews(); updateLastUpdated(); updateCacheInfo();
   }catch(e){
     err.textContent='⚠ Татахад алдаа: '+e.message; err.classList.add('on');
