@@ -544,9 +544,14 @@ async function fetchAndCache(source) {
     try {
       translated = await translateWithGemini(articles, topicMap[source]);
     } catch (trErr) {
-      // No Gemini key / quota hit → serve the raw ENGLISH articles instead of
-      // an empty feed. Mongolian arrives when the local translator ingests or
-      // the key is configured — ingest simply overwrites this cache.
+      // Translation unavailable (no key / quota). If we already hold ANY cache
+      // for this source — usually Mongolian pushed by the local translator —
+      // KEEP it; overwriting good MN with raw EN would be a downgrade. Only a
+      // source with no cache at all (fresh local dev, brand-new source) gets
+      // the raw-ENGLISH fallback so the feed is never empty.
+      if (newsCache[source].data?.news?.length > 0) {
+        return { source, data: newsCache[source].data, cached: true, error: trErr.message };
+      }
       console.warn(`[${source}] translate unavailable (${trErr.message}) — serving EN fallback`);
       translated = { news: fallbackStructure(articles, topicMap[source]) };
     }
