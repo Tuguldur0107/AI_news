@@ -218,9 +218,22 @@ function saveNewsCache() {
 
 loadNewsCache();
 
+// Majority of the first few titles still Latin-script → the cache never got
+// translated (flagged EN fallback, pre-flag EN cache, or a failed batch).
+function cacheLooksUntranslated(data) {
+  const sample = (data?.news || []).slice(0, 3);
+  if (!sample.length) return false;
+  const en = sample.filter(n => n.untranslated || _looksEnglish(n.title)).length;
+  return en > sample.length / 2;
+}
+
 function isCacheFresh(source) {
   const cache = newsCache[source];
-  return cache.data && cache.data.news && cache.data.news.length > 0 && (Date.now() - cache.timestamp < CACHE_TTL);
+  if (!(cache.data && cache.data.news && cache.data.news.length > 0)) return false;
+  // An untranslated cache is never "fresh" — retry translating it on every
+  // warm-up cycle until a translator succeeds or ingest overwrites it.
+  if (cacheLooksUntranslated(cache.data)) return false;
+  return Date.now() - cache.timestamp < CACHE_TTL;
 }
 
 // ── Shared: Gemini translate helper ──────────────────────────────
@@ -331,6 +344,7 @@ async function fetchNewsapiArticles() {
   const data = await response.json();
   return (data.articles || []).slice(0, 6).map(a => ({
     title: a.title || '', summary: a.description || '', source: a.source?.name || '', url: a.url || '', published: a.publishedAt || '',
+    image: a.urlToImage || null,
   }));
 }
 
@@ -435,6 +449,7 @@ async function fetchGnewsArticles() {
   const data = await response.json();
   return (data.articles || []).slice(0, 6).map(a => ({
     title: a.title || '', summary: a.description || '', source: a.source?.name || '', url: a.url || '', published: a.publishedAt || '',
+    image: a.image || null,
   }));
 }
 
@@ -486,6 +501,7 @@ async function fetchDevtoTop() {
   return (arr || []).map(a => ({
     title: a.title || '', summary: a.description || a.title || '', source: 'Dev.to',
     url: a.url || '', score: a.positive_reactions_count || 0, published: a.published_at || '',
+    image: a.cover_image || a.social_image || null,
   }));
 }
 
@@ -522,8 +538,8 @@ async function fetchTrendingArticles() {
 }
 
 // ── Fetch + translate one source (with cache) ───────────────────
-async function fetchAndCache(source) {
-  if (isCacheFresh(source)) {
+async function fetchAndCache(source, force = false) {
+  if (!force && isCacheFresh(source)) {
     return { source, data: newsCache[source].data, cached: true };
   }
 
@@ -540,20 +556,40 @@ async function fetchAndCache(source) {
   const topicMap = { google: 'ai', newsapi: 'ai', gnews: 'ai', iot: 'iot', rfid: 'rfid', dev: 'dev', trending: 'trending', edge: 'edge' };
   try {
     const articles = await fetchers[source]();
-    let translated;
+    let translated = null;
     try {
       translated = await translateWithGemini(articles, topicMap[source]);
-    } catch (trErr) {
-      // Translation unavailable (no key / quota). If we already hold ANY cache
-      // for this source — usually Mongolian pushed by the local translator —
-      // KEEP it; overwriting good MN with raw EN would be a downgrade. Only a
-      // source with no cache at all (fresh local dev, brand-new source) gets
-      // the raw-ENGLISH fallback so the feed is never empty.
-      if (newsCache[source].data?.news?.length > 0) {
-        return { source, data: newsCache[source].data, cached: true, error: trErr.message };
+    } catch (gemErr) {
+      // Gemini unavailable (no key / dead quota) → free web translators
+      // (Google Translate, MyMemory fallback) over the pre-structured items.
+      // No LLM needed: category/importance come from fallbackStructure.
+      try {
+        translated = { news: await translateFreeNews(fallbackStructure(articles, topicMap[source])) };
+        console.log(`[${source}] translated via free web translator (Gemini: ${gemErr.message})`);
+      } catch (freeErr) {
+        // Both translators failed. If we already hold a TRANSLATED cache —
+        // usually Mongolian from the local translator — KEEP it; overwriting
+        // good MN with raw EN would be a downgrade. An untranslated (EN) or
+        // absent cache gets the fresh raw-ENGLISH fallback instead, so the
+        // feed is never empty and never stale-EN.
+        const held = newsCache[source].data;
+        if (held?.news?.length > 0 && !cacheLooksUntranslated(held)) {
+          return { source, data: held, cached: true, error: freeErr.message };
+        }
+        console.warn(`[${source}] no translator available (${freeErr.message}) — serving EN fallback`);
+        translated = { news: fallbackStructure(articles, topicMap[source]) };
       }
-      console.warn(`[${source}] translate unavailable (${trErr.message}) — serving EN fallback`);
-      translated = { news: fallbackStructure(articles, topicMap[source]) };
+    }
+    // Re-attach fields the translators must not touch (image; url safety-net)
+    // by list position — Gemini echoes urls but drops unknown fields.
+    if (Array.isArray(translated?.news)) {
+      translated.news.forEach((n, i) => {
+        const src = articles[i];
+        if (src) {
+          if (src.image && !n.image) n.image = src.image;
+          if (!n.url && src.url) n.url = src.url;
+        }
+      });
     }
     // Only cache if we got actual results
     if (translated?.news?.length > 0) {
@@ -572,20 +608,90 @@ async function fetchAndCache(source) {
 
 // Raw articles → the UI's news shape, untranslated (EN). Importance follows
 // the source order (trending arrives popularity-ranked), first item featured.
+// Google-News-style feeds put the TITLE in the snippet — an empty summary is
+// more honest than the title repeated (the UI hides an empty dek).
 function fallbackStructure(articles, topic) {
   const firstCat = (TOPIC_CATEGORIES[topic] || TOPIC_CATEGORIES.ai).split(',')[0].replace(/["\s]/g, '');
-  return (articles || []).map((a, i) => ({
-    id: i + 1,
-    title: a.title || '',
-    summary: (a.summary || a.title || '').slice(0, 300),
-    detail: a.summary || a.title || '',
-    category: firstCat,
-    source: a.source || '',
-    url: a.url || '',
-    importance: Math.max(1, Math.min(10, 9 - i)),
-    featured: i === 0,
-    timeAgo: 'саяхан',
-  }));
+  return (articles || []).map((a, i) => {
+    const realSummary = a.summary && a.summary.trim() !== (a.title || '').trim() ? a.summary : '';
+    return {
+      id: i + 1,
+      title: a.title || '',
+      summary: realSummary.slice(0, 300),
+      detail: realSummary,
+      category: firstCat,
+      source: a.source || '',
+      url: a.url || '',
+      image: a.image || null,
+      importance: Math.max(1, Math.min(10, 9 - i)),
+      featured: i === 0,
+      timeAgo: 'саяхан',
+      untranslated: true, // cleared by translateFreeNews; keeps cache retryable
+    };
+  });
+}
+
+// ── Free web translation (no key): Google Translate → MyMemory ──
+// Mirrors scripts/local-translator.js. Bundles title|summary|detail per
+// article with a markdown-rule sentinel both backends preserve.
+const SEP = '\n---\n';
+const SPLIT_RE = /\s*\n?-{3,}\n?\s*/;
+let _translateFn = null;
+async function _getFreeTranslator() {
+  if (!_translateFn) _translateFn = (await import('@vitalets/google-translate-api')).translate;
+  return _translateFn;
+}
+async function _translateMyMemory(text) {
+  const r = await fetch('https://api.mymemory.translated.net/get?langpair=en|mn&q=' + encodeURIComponent(text));
+  if (!r.ok) throw new Error(`MyMemory ${r.status}`);
+  const j = await r.json();
+  const out = j.responseData?.translatedText;
+  if (!out || j.responseStatus >= 400) throw new Error(`MyMemory: ${j.responseDetails || 'no translation'}`);
+  return out;
+}
+let _googleBlockedUntil = 0;
+async function _translateFreeOne(text) {
+  if (!text) return text;
+  if (Date.now() < _googleBlockedUntil) return _translateMyMemory(text);
+  try {
+    const t = await _getFreeTranslator();
+    return (await t(text, { to: 'mn' })).text;
+  } catch (err) {
+    if (/Too Many Requests|429/i.test(err.message || '')) _googleBlockedUntil = Date.now() + 15 * 60_000;
+    return _translateMyMemory(text);
+  }
+}
+function _looksEnglish(s) {
+  if (!s) return false;
+  const cyr = (s.match(/[Ѐ-ӿ]/g) || []).length;
+  const lat = (s.match(/[A-Za-z]/g) || []).length;
+  return lat > 10 && cyr / Math.max(1, lat) < 0.15;
+}
+// Translate the text fields of structured news items. Throws when NOTHING got
+// translated (so callers never overwrite a good Mongolian cache with EN).
+async function translateFreeNews(news) {
+  const out = [];
+  let translatedAny = false;
+  for (let i = 0; i < news.length; i++) {
+    const n = news[i];
+    let title = n.title, summary = n.summary, detail = n.detail;
+    try {
+      const combined = `${n.title || ''}${SEP}${n.summary || ''}${SEP}${n.detail || ''}`;
+      const parts = (await _translateFreeOne(combined)).split(SPLIT_RE);
+      if (parts.length >= 3) {
+        title = parts[0].trim(); summary = parts[1].trim(); detail = parts.slice(2).join(' ').trim();
+      } else {
+        title = await _translateFreeOne(n.title);
+      }
+      if (!_looksEnglish(title)) translatedAny = true;
+    } catch (e) { /* keep EN for this item */ }
+    const item = { ...n, title, summary, detail };
+    if (!_looksEnglish(title)) delete item.untranslated;
+    out.push(item);
+    if (i < news.length - 1) await new Promise(r => setTimeout(r, 300));
+  }
+  if (!translatedAny) throw new Error('free translators unavailable');
+  return out;
 }
 
 // ── Main endpoint: fetch ALL sources at once ────────────────────
@@ -630,7 +736,10 @@ app.post('/api/news/ingest', (req, res) => {
 
 app.post('/api/news/all', async (req, res) => {
   try {
-    const results = await Promise.all(ALL_SOURCES.map(s => fetchAndCache(s)));
+    // Ops escape hatch: a valid ingest token may bypass the cache TTL so a
+    // just-deployed pipeline change takes effect without waiting hours.
+    const force = !!INGEST_TOKEN && req.get('X-Ingest-Token') === INGEST_TOKEN;
+    const results = await Promise.all(ALL_SOURCES.map(s => fetchAndCache(s, force)));
 
     const response_data = {
       timestamp: new Date().toISOString(),

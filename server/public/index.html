@@ -91,6 +91,7 @@ body{
 .band{aspect-ratio:16/9; border-radius:14px; margin-bottom:15px; position:relative; overflow:hidden; border:1px solid var(--hairline); box-shadow:var(--shadow)}
 .band .tex{position:absolute; inset:0; opacity:.5; background-image:linear-gradient(var(--hairline) 1px,transparent 1px),linear-gradient(90deg,var(--hairline) 1px,transparent 1px); background-size:22px 22px}
 .band .mono{position:absolute; right:14px; bottom:2px; font-family:var(--serif); font-size:110px; font-weight:700; color:var(--ink); opacity:.07; line-height:1}
+.band img,.thumb img,.sheet-band img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover}
 .kicker{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1.2px; color:var(--pulse)}
 .hero-title{font-family:var(--serif); font-size:28px; line-height:1.16; font-weight:700; letter-spacing:-.2px; margin:9px 0 10px; text-wrap:balance}
 .hero-dek{font-size:15.5px; color:var(--ink-soft); line-height:1.55; margin-bottom:13px}
@@ -300,8 +301,11 @@ function cleanCat(c){ if(!c)return 'tools'; const f=String(c).split('|')[0].trim
 function catLabel(c){ const k=cleanCat(c); return (CAT_MN[k]||k).toUpperCase(); }
 function getApiUrl(){ return localStorage.getItem(API_URL_KEY)||window.location.origin; }
 function getRefreshInterval(){ return parseInt(localStorage.getItem(REFRESH_KEY)||'600',10); }
-function band(seed,cls){ seed=seed||'A'; const a=(seed.charCodeAt(0)*37)%80+10, b=(seed.charCodeAt(seed.length-1)*23)%80+10;
-  return '<div class="'+cls+'" style="background:radial-gradient(120% 120% at '+a+'% '+b+'%,var(--pulse-soft),transparent 55%),var(--surface)"><div class="tex"></div><div class="mono">'+esc(seed[0].toUpperCase())+'</div></div>'; }
+function band(seed,cls,img){ seed=seed||'A'; const a=(seed.charCodeAt(0)*37)%80+10, b=(seed.charCodeAt(seed.length-1)*23)%80+10;
+  // Real article image when the source provided one; the abstract texture
+  // stays underneath as the loading/error fallback.
+  const pic = img ? '<img src="'+esc(img)+'" alt="" loading="lazy" onerror="this.remove()">' : '';
+  return '<div class="'+cls+'" style="background:radial-gradient(120% 120% at '+a+'% '+b+'%,var(--pulse-soft),transparent 55%),var(--surface)"><div class="tex"></div><div class="mono">'+esc(seed[0].toUpperCase())+'</div>'+pic+'</div>'; }
 function metaLine(i){ const hot=(Number(i.importance)||0)>=8?'<span class="d"></span><span class="hot">◆ Онцлох</span>':'';
   return '<div class="meta"><span class="src">'+esc(i.source)+'</span><span class="d"></span><span>'+esc(i.timeAgo||'')+'</span>'+hot+'</div>'; }
 
@@ -378,17 +382,18 @@ function renderNews(){
       allHidden?'Тохиргооноос «Уншсан мэдээг харуулах»-ыг асаа':(allNews.length?'':'↻ товчоор татаж үзнэ үү'), !allNews.length);
     return;
   }
+  const dek=t=>t?'<div class="item-dek">'+esc(t)+'</div>':'';
   if(activeTopic==='trending'){
     v.innerHTML='<div class="eyebrow"><span class="fl"></span> Хөгжүүлэгчдийн дунд өнөөдөр тренд<span class="line"></span></div>'+
-      list.map((i,idx)=>'<div class="trend-row item '+(isRead(i)?'read':'')+'" data-id="'+i.id+'"><div class="rank">'+(idx+1)+'</div><div><div class="item-kicker">'+esc(i.source)+' · '+catLabel(i.category)+'</div><div class="item-title">'+esc(i.title)+'</div><div class="item-dek">'+esc(i.summary)+'</div>'+metaLine(i)+'</div>'+band(i.source,'thumb')+'</div>').join('');
+      list.map((i,idx)=>'<div class="trend-row item '+(isRead(i)?'read':'')+'" data-id="'+i.id+'"><div class="rank">'+(idx+1)+'</div><div><div class="item-kicker">'+esc(i.source)+' · '+catLabel(i.category)+'</div><div class="item-title">'+esc(i.title)+'</div>'+dek(i.summary)+metaLine(i)+'</div>'+band(i.source,'thumb',i.image)+'</div>').join('');
   }else{
     const sorted=[...list].sort((a,b)=>(Number(b.importance)||0)-(Number(a.importance)||0));
     let hero=null, rest=sorted;
     if(currentFilter==='all'){ hero=sorted.find(n=>n.featured)||sorted[0]; rest=sorted.filter(n=>n!==hero); }
     let html='';
-    if(hero) html+='<article class="hero '+(isRead(hero)?'read':'')+'" data-id="'+hero.id+'">'+band(hero.source,'band')+'<div class="kicker">'+catLabel(hero.category)+'</div><h1 class="hero-title">'+esc(hero.title)+'</h1><p class="hero-dek">'+esc(hero.summary)+'</p>'+metaLine(hero)+'</article>';
+    if(hero) html+='<article class="hero '+(isRead(hero)?'read':'')+'" data-id="'+hero.id+'">'+band(hero.source,'band',hero.image)+'<div class="kicker">'+catLabel(hero.category)+'</div><h1 class="hero-title">'+esc(hero.title)+'</h1>'+(hero.summary?'<p class="hero-dek">'+esc(hero.summary)+'</p>':'')+metaLine(hero)+'</article>';
     html+='<div class="eyebrow">'+(hero?'Сүүлийн мэдээ':'Мэдээ')+'<span class="line"></span></div><div class="feed">';
-    html+=rest.map(i=>'<div class="item '+(isRead(i)?'read':'')+'" data-id="'+i.id+'"><div><div class="item-kicker">'+catLabel(i.category)+'</div><div class="item-title">'+esc(i.title)+'</div><div class="item-dek">'+esc(i.summary)+'</div>'+metaLine(i)+'</div>'+band(i.source,'thumb')+'</div>').join('');
+    html+=rest.map(i=>'<div class="item '+(isRead(i)?'read':'')+'" data-id="'+i.id+'"><div><div class="item-kicker">'+catLabel(i.category)+'</div><div class="item-title">'+esc(i.title)+'</div>'+dek(i.summary)+metaLine(i)+'</div>'+band(i.source,'thumb',i.image)+'</div>').join('');
     html+='</div>';
     v.innerHTML=html;
   }
@@ -403,9 +408,10 @@ function openSheet(id){
   sheetItem=i; markRead(i);
   const imp=Number(i.importance)||0;
   const kicker=activeTopic==='trending' ? esc(i.source)+' · '+catLabel(i.category) : catLabel(i.category);
-  sheet.innerHTML='<div class="grip"></div>'+band(i.source,'sheet-band')+
+  const detailTxt=i.detail||i.summary;
+  sheet.innerHTML='<div class="grip"></div>'+band(i.source,'sheet-band',i.image)+
     '<div class="kicker">'+kicker+'</div><h1 class="sheet-title">'+esc(i.title)+'</h1>'+metaLine(i)+
-    '<div class="sheet-detail">'+esc(i.detail||i.summary)+'</div>'+
+    (detailTxt?'<div class="sheet-detail">'+esc(detailTxt)+'</div>':'<div style="height:10px"></div>')+
     '<div class="tags"><span class="tag">'+esc(i.source)+'</span><span class="tag">'+esc(i.timeAgo||'')+'</span>'+
       (imp>=8?'<span class="tag hot">◆ Чухал '+imp+'/10</span>':'<span class="tag">Ач холбогдол '+imp+'/10</span>')+'</div>'+
     '<button class="readbtn" id="srcBtn">Эх сурвалж дээр унших →</button>'+

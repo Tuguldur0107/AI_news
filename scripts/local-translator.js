@@ -84,6 +84,7 @@ async function fetchNewsapi() {
   const data = await r.json();
   return (data.articles || []).slice(0, 6).map(a => ({
     title: a.title || '', summary: a.description || '', source: a.source?.name || '', url: a.url || '', published: a.publishedAt || '',
+    image: a.urlToImage || null,
   }));
 }
 async function fetchGnews() {
@@ -96,6 +97,7 @@ async function fetchGnews() {
   const data = await r.json();
   return (data.articles || []).slice(0, 6).map(a => ({
     title: a.title || '', summary: a.description || '', source: a.source?.name || '', url: a.url || '', published: a.publishedAt || '',
+    image: a.image || null,
   }));
 }
 
@@ -160,7 +162,7 @@ async function fetchHackerNewsTop() {
 }
 async function fetchDevtoTop() {
   const arr = await fetchJsonSafe('https://dev.to/api/articles?top=1&per_page=25');
-  return (arr || []).map(a => ({ title: a.title || '', summary: a.description || a.title || '', source: 'Dev.to', url: a.url || '', score: a.positive_reactions_count || 0 }));
+  return (arr || []).map(a => ({ title: a.title || '', summary: a.description || a.title || '', source: 'Dev.to', url: a.url || '', score: a.positive_reactions_count || 0, image: a.cover_image || a.social_image || null }));
 }
 async function fetchLobstersHot() {
   const arr = await fetchJsonSafe('https://lobste.rs/hottest.json');
@@ -398,6 +400,8 @@ async function processSource(source) {
   console.log(`[${source}] ${articles.length} articles → Ollama (${OLLAMA_MODEL})`);
   const t0 = Date.now();
   const enriched = await enrichWithOllama(articles, topic);
+  // Re-attach fields the LLM doesn't echo (image) by list position.
+  enriched.forEach((n, i) => { if (articles[i]?.image && !n.image) n.image = articles[i].image; });
   console.log(`[${source}] structured in ${((Date.now() - t0) / 1000).toFixed(1)}s → ${enriched.length} items`);
 
   const t1 = Date.now();
