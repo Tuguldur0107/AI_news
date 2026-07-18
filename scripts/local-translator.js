@@ -38,19 +38,21 @@ const cliSource = (process.argv.find(a => a.startsWith('--source=')) || '').spli
 const SOURCES_FILTER = cliSource
   ? [cliSource]
   : (process.env.SOURCES === 'all' || !process.env.SOURCES
-      ? ['google', 'newsapi', 'gnews', 'iot', 'rfid', 'dev']
+      ? ['trending', 'google', 'newsapi', 'gnews', 'edge', 'iot', 'rfid', 'dev']
       : process.env.SOURCES.split(',').map(s => s.trim()).filter(Boolean));
 
 const rssParser = new RSSParser();
 
 // ── Categories per topic (kept in sync with server/index.js) ─────
 const TOPIC_CATEGORIES = {
-  ai:   ['model', 'research', 'business', 'safety', 'tools'],
-  iot:  ['hardware', 'connectivity', 'industry', 'security', 'platform'],
-  rfid: ['hardware', 'retail', 'logistics', 'healthcare', 'standard'],
-  dev:  ['agent', 'rag', 'llm', 'vlm', 'tooling', 'skill'],
+  ai:       ['model', 'research', 'business', 'safety', 'tools'],
+  iot:      ['hardware', 'connectivity', 'industry', 'security', 'platform'],
+  rfid:     ['hardware', 'retail', 'logistics', 'healthcare', 'standard'],
+  dev:      ['agent', 'rag', 'llm', 'vlm', 'tooling', 'skill'],
+  trending: ['model', 'research', 'tooling', 'agent', 'business'],
+  edge:     ['inference', 'hardware', 'vision', 'privacy', 'tinyml'],
 };
-const SOURCE_TOPIC = { google: 'ai', newsapi: 'ai', gnews: 'ai', iot: 'iot', rfid: 'rfid', dev: 'dev' };
+const SOURCE_TOPIC = { google: 'ai', newsapi: 'ai', gnews: 'ai', iot: 'iot', rfid: 'rfid', dev: 'dev', trending: 'trending', edge: 'edge' };
 
 // ── RSS fetchers ─────────────────────────────────────────────────
 function stripGoogleSuffix(item) {
@@ -129,9 +131,63 @@ async function fetchDev() {
   return merged.slice(0, 6); // Reduced from 10 to keep Ollama batches manageable on partial-VRAM GPUs
 }
 
+// ── EDGE: edge-computing / edge-AI via Google News RSS ───────────
+async function fetchEdge() {
+  const f = await rssParser.parseURL('https://news.google.com/rss/search?q=%22edge+computing%22+OR+%22edge+AI%22+OR+%22on-device+AI%22+OR+%22TinyML%22+OR+%22edge+inference%22&hl=en-US&gl=US&ceid=US:en');
+  return f.items.slice(0, 8).map(stripGoogleSuffix);
+}
+
+// ── TRENDING: free popularity aggregation (HN + Dev.to + Lobsters) ─
+// Same daily.dev-style model as server/index.js — free, keyless APIs, ranked
+// by per-source-normalized popularity, filtered to AI/dev relevance.
+const TREND_KEYWORDS = /\b(a\.?i\.?|artificial intelligence|machine learning|\bml\b|llm|gpt|claude|gemini|llama|mistral|openai|anthropic|deepseek|agent|\brag\b|vlm|mcp|model|neural|deep learning|transformer|inference|prompt|embedding|fine.?tun|diffusion|pytorch|tensorflow|hugging.?face|dataset|\bgpu\b|cuda|programming|software|framework|open.?source|kubernetes|\brust\b|python|typescript|javascript|database|compiler|robot|chip|semiconductor)\b/i;
+
+async function fetchJsonSafe(url, ms = 8000) {
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(), ms);
+  try {
+    const r = await fetch(url, { signal: c.signal, headers: { 'User-Agent': 'AI-PULSE/1.0 (news aggregator)' } });
+    if (!r.ok) throw new Error(`${r.status}`);
+    return await r.json();
+  } finally { clearTimeout(t); }
+}
+async function fetchHackerNewsTop() {
+  const ids = await fetchJsonSafe('https://hacker-news.firebaseio.com/v0/topstories.json');
+  const items = await Promise.all((ids || []).slice(0, 50).map(async id => {
+    try { return await fetchJsonSafe(`https://hacker-news.firebaseio.com/v0/item/${id}.json`, 6000); } catch { return null; }
+  }));
+  return items.filter(i => i && i.title && i.url).map(i => ({ title: i.title, summary: i.title, source: 'Hacker News', url: i.url, score: i.score || 0 }));
+}
+async function fetchDevtoTop() {
+  const arr = await fetchJsonSafe('https://dev.to/api/articles?top=1&per_page=25');
+  return (arr || []).map(a => ({ title: a.title || '', summary: a.description || a.title || '', source: 'Dev.to', url: a.url || '', score: a.positive_reactions_count || 0 }));
+}
+async function fetchLobstersHot() {
+  const arr = await fetchJsonSafe('https://lobste.rs/hottest.json');
+  return (arr || []).map(p => ({ title: p.title || '', summary: p.description || p.title || '', source: 'Lobsters', url: p.url || p.comments_url || '', score: p.score || 0 }));
+}
+async function fetchTrending() {
+  const results = await Promise.allSettled([fetchHackerNewsTop(), fetchDevtoTop(), fetchLobstersHot()]);
+  const all = [];
+  for (const r of results) if (r.status === 'fulfilled') all.push(...r.value);
+  if (all.length === 0) throw new Error('all trending sources failed');
+  const rel = all.filter(a => a.title && a.url && TREND_KEYWORDS.test(`${a.title} ${a.summary || ''}`));
+  const mx = {};
+  for (const a of rel) mx[a.source] = Math.max(mx[a.source] || 1, a.score);
+  for (const a of rel) a._n = a.score / (mx[a.source] || 1);
+  rel.sort((x, y) => y._n - x._n);
+  const seen = new Set(); const m = [];
+  for (const a of rel) {
+    const k = (a.title || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40);
+    if (k && !seen.has(k)) { seen.add(k); m.push(a); }
+  }
+  return m.slice(0, 10);
+}
+
 const FETCHERS = {
   google: fetchGoogle, newsapi: fetchNewsapi, gnews: fetchGnews,
   iot: fetchIoT, rfid: fetchRFID, dev: fetchDev,
+  trending: fetchTrending, edge: fetchEdge,
 };
 
 // ── Ollama: structure articles in ENGLISH ────────────────────────

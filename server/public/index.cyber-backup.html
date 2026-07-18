@@ -1,0 +1,1861 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>AI PULSE — Хиймэл оюун мэдээ</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#050508">
+
+<!-- iOS PWA -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AI PULSE">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+
+<style>
+  /* Calibri font stack */
+
+  :root {
+    --bg: #050508;
+    --surface: #0d0d14;
+    --border: #1a1a2e;
+    --accent: #00ff88;
+    --accent2: #ff3366;
+    --accent3: #7b61ff;
+    --text: #e8e8f0;
+    --muted: #5a5a7a;
+    --card: #0f0f1a;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  ::-webkit-scrollbar { width: 0; background: transparent; }
+  html { scrollbar-width: none; overflow-x: hidden; }
+
+  body {
+    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Background grid — applied directly to body to avoid pseudo-element overflow */
+  body {
+    background-image:
+      linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    /* background-attachment: scroll for mobile perf */
+  }
+
+
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding-top: var(--safe-top);
+  }
+
+  .top-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .last-updated {
+    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    opacity: 0.7;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
+    font-weight: 400;
+    color: #000;
+    font-size: 12px;
+    animation: pulse-glow 2s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 10px rgba(0,255,136,0.5); }
+    50% { box-shadow: 0 0 25px rgba(0,255,136,0.9), 0 0 50px rgba(0,255,136,0.3); }
+  }
+
+  .logo-text {
+    font-size: 18px;
+    font-weight: 400;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+
+  /* Main layout */
+  .container {
+    position: relative;
+    z-index: 5;
+    max-width: 100%;
+    margin: 0;
+    padding: 16px;
+    padding-left: calc(16px + var(--safe-left));
+    padding-right: calc(16px + var(--safe-right));
+    padding-bottom: calc(16px + var(--safe-bottom));
+  }
+
+  /* Pull to refresh indicator */
+  .pull-indicator {
+    text-align: center;
+    padding: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s, padding 0.3s;
+    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 2px;
+  }
+
+  .pull-indicator.visible {
+    max-height: 50px;
+    padding: 12px 0;
+  }
+
+  /* Source tabs */
+  .source-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .source-tab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    padding: 12px 8px;
+    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+  }
+
+  .source-tab + .source-tab {
+    border-left: 1px solid var(--border);
+  }
+
+  .source-tab:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+
+  .source-tab.active {
+    color: #000;
+    background: var(--accent);
+  }
+
+  .tab-count {
+    display: inline-block;
+    font-size: 9px;
+    opacity: 0.7;
+    margin-left: 2px;
+  }
+
+  .source-tab.active .tab-count { opacity: 0.6; }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .fetch-btn {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 12px 24px;
+    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
+    font-weight: 400;
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .fetch-btn:hover {
+    background: #00ffaa;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(0,255,136,0.4);
+  }
+
+  .fetch-btn:active {
+    transform: scale(0.97);
+  }
+
+  .fetch-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .topic-filters {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .topic-filters::-webkit-scrollbar { display: none; }
+
+  .filter-tag {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 8px 14px;
+    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .filter-tag:hover, .filter-tag.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(0,255,136,0.05);
+  }
+
+  /* News grid */
+  .news-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .news-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    animation: fadeInUp 0.4s ease forwards;
+    opacity: 0;
+    transition: border-color 0.3s, transform 0.2s, box-shadow 0.3s;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .news-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent3));
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.3s;
+    border-radius: 12px 12px 0 0;
+  }
+
+  .news-card:hover::before { transform: scaleX(1); }
+  .news-card:hover {
+    border-color: rgba(0,255,136,0.25);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 32px rgba(0,255,136,0.08), 0 0 0 1px rgba(0,255,136,0.1);
+  }
+
+  .news-card:active {
+    transform: scale(0.98);
+  }
+
+  .news-card.featured {
+    grid-column: span 2;
+    border-color: rgba(0,255,136,0.2);
+    background: linear-gradient(135deg, var(--card) 0%, rgba(0,255,136,0.03) 100%);
+  }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .card-category {
+    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 2px;
+  }
+
+  .cat-model { background: rgba(123,97,255,0.15); color: var(--accent3); border: 1px solid rgba(123,97,255,0.3); }
+  .cat-research { background: rgba(0,255,136,0.1); color: var(--accent); border: 1px solid rgba(0,255,136,0.2); }
+  .cat-business { background: rgba(255,51,102,0.1); color: var(--accent2); border: 1px solid rgba(255,51,102,0.2); }
+  .cat-safety { background: rgba(255,165,0,0.1); color: #ffa500; border: 1px solid rgba(255,165,0,0.2); }
+  .cat-tools { background: rgba(0,200,255,0.1); color: #00c8ff; border: 1px solid rgba(0,200,255,0.2); }
+  .cat-skill { background: rgba(255,105,180,0.1); color: #ff69b4; border: 1px solid rgba(255,105,180,0.25); }
+
+  /* Read state — already-opened articles fade slightly */
+  .news-card.read { opacity: 0.55; }
+  .news-card.read .card-title { color: var(--muted); }
+  .news-card.read:hover { opacity: 0.85; }
+
+  .card-time {
+    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
+    font-size: 9px;
+    color: var(--muted);
+  }
+
+  .card-title {
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 1.4;
+    margin-bottom: 8px;
+    color: var(--text);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .news-card.featured .card-title { font-size: 18px; -webkit-line-clamp: 3; }
+
+  .card-summary {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-bottom: 0;
+    flex: 1;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .news-card.featured .card-summary { -webkit-line-clamp: 4; }
+
+  .card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .card-source {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
+    font-size: 10px;
+    color: var(--muted);
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .source-favicon {
+    width: 14px; height: 14px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    background: var(--border);
+  }
+
+  .card-importance-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .importance-dots {
+    display: flex;
+    gap: 2px;
+  }
+
+  .importance-dot {
+    width: 4px; height: 10px;
+    border-radius: 1px;
+    background: var(--border);
+    transition: background 0.2s;
+  }
+
+  .importance-dot.filled { background: var(--accent); }
+  .importance-dot.filled.high { background: var(--accent2); }
+
+  .importance-label {
+    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
+    font-size: 9px;
+    color: var(--muted);
+    opacity: 0.6;
+  }
+
+  /* Loading state */
+  .loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 50vh;
+    min-height: 50dvh;
+    gap: 16px;
+  }
+
+  /* Pulse wave SVG animation */
+  .pulse-wave {
+    width: 240px;
+    height: 50px;
+  }
+
+  .pulse-line {
+    fill: none;
+    stroke: #00ff88;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-dasharray: 500;
+    stroke-dashoffset: 500;
+    animation: pulse-draw 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-draw {
+    0% { stroke-dashoffset: 500; }
+    50% { stroke-dashoffset: 0; }
+    100% { stroke-dashoffset: -500; }
+  }
+
+  .pulse-dot {
+    fill: #00ff88;
+    animation: pulse-dot-anim 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-dot-anim {
+    0%, 100% { opacity: 0; }
+    45%, 55% { opacity: 1; }
+  }
+
+  .loading-text {
+    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+  }
+
+  /* Empty state */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 50vh;
+    min-height: 50dvh;
+    gap: 14px;
+    text-align: center;
+    padding: 20px;
+  }
+
+  .empty-icon {
+    font-size: 40px;
+    opacity: 0.3;
+  }
+
+  .empty-text {
+    font-size: 16px;
+    font-weight: 400;
+    color: var(--muted);
+  }
+
+  .empty-sub {
+    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
+    font-size: 11px;
+    color: var(--muted);
+    opacity: 0.6;
+  }
+
+
+  /* Detail modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+
+  .modal-overlay.open {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .modal {
+    background: var(--card);
+    border: 1px solid rgba(0,255,136,0.2);
+    max-width: 680px;
+    width: 100%;
+    max-height: 85vh;
+    max-height: 85dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 28px;
+    padding-bottom: calc(28px + var(--safe-bottom));
+    position: relative;
+    transform: scale(0.95);
+    opacity: 0;
+    transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.3s;
+    border-radius: 12px;
+  }
+
+  .modal-overlay.open .modal { transform: scale(1); opacity: 1; }
+
+  .modal-handle {
+    width: 36px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 0 auto 20px;
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 16px; right: 16px;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    width: 36px; height: 36px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    border-radius: 8px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .modal-close:hover {
+    border-color: var(--accent2);
+    color: var(--accent2);
+  }
+
+  .modal-header-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+
+  .modal-time {
+    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+
+  .modal-title {
+    font-size: 22px;
+    font-weight: 400;
+    margin-bottom: 20px;
+    line-height: 1.3;
+    padding-right: 40px;
+    color: var(--accent);
+  }
+
+  .modal-detail {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.8;
+    user-select: text;
+    -webkit-user-select: text;
+    padding: 16px 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .modal-info-tags {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+    padding: 12px 0;
+  }
+
+  .modal-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
+    font-size: 10px;
+    padding: 5px 10px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+  }
+
+  .modal-tag-source {
+    background: rgba(0,255,136,0.08);
+    border: 1px solid rgba(0,255,136,0.2);
+    color: var(--accent);
+  }
+
+  .modal-tag-source img {
+    width: 14px; height: 14px;
+    border-radius: 3px;
+  }
+
+  .modal-tag-importance {
+    background: rgba(123,97,255,0.1);
+    border: 1px solid rgba(123,97,255,0.25);
+    color: var(--accent3);
+  }
+
+  .modal-tag-importance.high {
+    background: rgba(255,51,102,0.1);
+    border: 1px solid rgba(255,51,102,0.25);
+    color: var(--accent2);
+  }
+
+  /* Action buttons in modal */
+  .modal-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .source-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, rgba(0,255,136,0.1), rgba(0,255,136,0.05));
+    border: 1px solid rgba(0,255,136,0.3);
+    border-radius: 10px;
+    color: var(--accent);
+    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .source-btn:hover { background: linear-gradient(135deg, rgba(0,255,136,0.18), rgba(0,255,136,0.08)); box-shadow: 0 4px 16px rgba(0,255,136,0.15); }
+  .source-btn:active { transform: scale(0.98); }
+
+  .ai-buttons {
+    margin-top: 12px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .ai-buttons-label {
+    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+  }
+
+  .ai-buttons-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .ai-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 16px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+    color: var(--text);
+    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 10px;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+    flex: 1;
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .ai-btn:active { transform: scale(0.96); }
+
+  .ai-btn-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 400;
+    flex-shrink: 0;
+  }
+
+  .ai-btn-claude .ai-btn-icon { background: linear-gradient(135deg, #d97706, #f59e0b); color: #fff; }
+  .ai-btn-claude:hover { border-color: #d97706; background: rgba(217,119,6,0.1); }
+
+  .ai-btn-chatgpt .ai-btn-icon { background: linear-gradient(135deg, #10a37f, #34d399); color: #fff; }
+  .ai-btn-chatgpt:hover { border-color: #10a37f; background: rgba(16,163,127,0.1); }
+
+  .ai-btn-gemini .ai-btn-icon { background: linear-gradient(135deg, #4285f4, #7c3aed); color: #fff; }
+  .ai-btn-gemini:hover { border-color: #4285f4; background: rgba(66,133,244,0.1); }
+
+  /* Scroll hint for modal */
+  .modal-scroll-hint {
+    text-align: center;
+    padding: 8px;
+    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
+    font-size: 9px;
+    color: var(--muted);
+    opacity: 0.5;
+    letter-spacing: 1px;
+    animation: scrollHintPulse 2s ease-in-out infinite;
+  }
+
+  @keyframes scrollHintPulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.6; }
+  }
+
+  /* Settings panel */
+  .settings-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 8px 12px;
+    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+    border-radius: 4px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .settings-btn:hover { border-color: var(--accent3); color: var(--accent3); }
+
+  .settings-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 300px;
+    height: 100%;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    transform: translateX(100%);
+    z-index: 200;
+    padding: 24px;
+    padding-top: calc(24px + var(--safe-top));
+    transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .settings-panel.open { transform: translateX(0); }
+
+  .settings-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 199;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+
+  .settings-backdrop.open { opacity: 1; pointer-events: all; }
+
+  .settings-title {
+    font-size: 16px;
+    font-weight: 400;
+    color: var(--accent);
+    margin-bottom: 24px;
+    letter-spacing: 2px;
+  }
+
+  .settings-group {
+    margin-bottom: 20px;
+  }
+
+  .settings-label {
+    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+
+  .settings-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 12px;
+    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.2s;
+    border-radius: 4px;
+  }
+
+  .settings-input:focus { border-color: var(--accent); }
+
+  .settings-note {
+    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
+    font-size: 9px;
+    color: var(--muted);
+    opacity: 0.6;
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+
+  .settings-close {
+    position: absolute;
+    top: 16px;
+    top: calc(16px + var(--safe-top));
+    right: 16px;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    width: 32px; height: 32px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+  }
+
+  /* Offline banner */
+  .offline-banner {
+    display: none;
+    background: rgba(255,165,0,0.1);
+    border: 1px solid rgba(255,165,0,0.3);
+    padding: 10px 16px;
+    margin-bottom: 16px;
+    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
+    font-size: 11px;
+    color: #ffa500;
+    text-align: center;
+    letter-spacing: 1px;
+    border-radius: 4px;
+  }
+
+  .offline-banner.visible { display: block; }
+
+  /* Error state */
+  .error-msg {
+    background: rgba(255,51,102,0.1);
+    border: 1px solid rgba(255,51,102,0.3);
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
+    font-size: 11px;
+    color: var(--accent2);
+    display: none;
+    border-radius: 4px;
+  }
+
+  .error-msg.visible { display: block; }
+
+
+  /* Scroll to top button */
+  .scroll-top {
+    position: fixed;
+    bottom: 24px;
+    right: 20px;
+    width: 44px;
+    height: 44px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 50%;
+    font-size: 18px;
+    cursor: pointer;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(10px);
+    transition: all 0.3s;
+    box-shadow: 0 4px 16px rgba(0,255,136,0.3);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .scroll-top.visible {
+    opacity: 1;
+    pointer-events: all;
+    transform: translateY(0);
+  }
+
+  .scroll-top:active { transform: scale(0.9); }
+
+  /* Desktop responsive */
+  @media (min-width: 769px) {
+    .container { padding: 24px 48px; }
+    .modal { max-height: 80vh; }
+    .news-grid { gap: 20px; }
+    .news-card { padding: 22px; }
+    .controls { margin-bottom: 20px; }
+  }
+
+  @media (min-width: 1200px) {
+    .container { padding: 24px 80px; }
+    .news-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  /* Mobile responsive — only layout sizing changes */
+  @media (max-width: 768px) {
+    .news-grid { grid-template-columns: 1fr; gap: 12px; }
+    .news-card.featured { grid-column: span 1; }
+    .news-card { padding: 16px; }
+    .logo-text { font-size: 15px; letter-spacing: 3px; }
+    .fetch-btn { padding: 10px 18px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Settings Panel -->
+<div class="settings-backdrop" id="settingsBackdrop" onclick="toggleSettings()"></div>
+<div class="settings-panel" id="settingsPanel">
+  <button class="settings-close" onclick="toggleSettings()">✕</button>
+  <div class="settings-title">ТОХИРГОО</div>
+
+  <div class="settings-group">
+    <div class="settings-label">API SERVER URL</div>
+    <input class="settings-input" id="apiUrl" type="url" placeholder="https://ainews-production-9c46.up.railway.app">
+    <div class="settings-note">Анхдагч: ainews-production-9c46.up.railway.app</div>
+  </div>
+
+  <div class="settings-group">
+    <div class="settings-label">АВТОМАТ ШИНЭЧЛЭЛТ (МИНУТ)</div>
+    <input class="settings-input" id="refreshInterval" type="number" min="5" max="1440" value="600">
+    <div class="settings-note">Хамгийн бага: 5 минут</div>
+  </div>
+
+  <div class="settings-group">
+    <div class="settings-label">УНШСАН МЭДЭЭ</div>
+    <label style="display:flex; align-items:center; gap:8px; margin-top:6px; cursor:pointer; font-size:11px; color:var(--text);">
+      <input type="checkbox" id="showReadToggle" style="width:16px; height:16px; accent-color: var(--accent); cursor:pointer;">
+      Уншсан мэдээг харуулах
+    </label>
+    <button class="fetch-btn" style="font-size:11px; padding:8px 16px; margin-top:8px" onclick="resetReadIds()">УНШСАН ТЭМДЭГИЙГ АРИЛГАХ</button>
+    <div class="settings-note" id="readInfo">0 уншсан</div>
+  </div>
+
+  <div class="settings-group">
+    <div class="settings-label">МЭДЭЭНИЙ КЭШ</div>
+    <button class="fetch-btn" style="font-size:11px; padding:8px 16px; margin-top:4px" onclick="clearCache()">КЭШИЙГ ЦЭВЭРЛЭХ</button>
+    <div class="settings-note" id="cacheInfo">Кэш хоосон</div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="pull-indicator" id="pullIndicator">↓ ШИНЭЧЛЭХИЙН ТУЛД ДООШ ТАТНА УУ</div>
+  <div class="offline-banner" id="offlineBanner">⚡ ОФЛАЙН ГОРИМ — Кэшлэсэн мэдээг харуулж байна</div>
+  <div id="errorMsg" class="error-msg"></div>
+
+  <div class="top-bar">
+    <div class="logo">
+      <div class="logo-icon">AI</div>
+      <div>
+        <div class="logo-text">AI PULSE</div>
+      </div>
+    </div>
+    <div class="top-bar-right">
+      <span class="last-updated" id="lastUpdated"></span>
+      <button class="settings-btn" onclick="toggleSettings()">⚙</button>
+    </div>
+  </div>
+
+  <div class="source-tabs" id="topicTabs">
+    <button class="source-tab active" data-topic="ai" onclick="setTopic('ai')">AI</button>
+    <button class="source-tab" data-topic="iot" onclick="setTopic('iot')">IoT</button>
+    <button class="source-tab" data-topic="rfid" onclick="setTopic('rfid')">RFID</button>
+    <button class="source-tab" data-topic="dev" onclick="setTopic('dev')">DEV</button>
+  </div>
+
+  <div class="sticky-toolbar" id="stickyToolbar">
+    <div class="controls">
+      <button class="fetch-btn" id="fetchBtn" onclick="fetchNews()">
+        ▶ REFRESH
+      </button>
+      <div class="topic-filters" id="filterRow"></div>
+    </div>
+  </div>
+
+  <div id="newsContainer">
+    <div class="empty-state">
+      <div class="empty-icon">◈</div>
+      <div class="empty-text">Мэдээ татах товчийг дарна уу</div>
+      <div class="empty-sub">// AI PULSE хамгийн сүүлийн мэдээг танд хүргэнэ</div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" id="modalContent">
+    <div class="modal-handle"></div>
+    <button class="modal-close" onclick="closeModalBtn()">✕</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<!-- Bottom nav (mobile) -->
+<!-- Scroll to top -->
+<button class="scroll-top" id="scrollTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<script>
+let allNews = [];
+let allSourceData = { google: [], newsapi: [], gnews: [], iot: [], rfid: [], dev: [] };
+let currentFilter = 'all';
+let isLoading = false;
+let autoRefreshTimer = null;
+let activeTopic = 'ai';
+
+const ALL_SOURCES = ['google', 'newsapi', 'gnews', 'iot', 'rfid', 'dev'];
+
+const TOPIC_SOURCES = {
+  ai:   ['google', 'newsapi', 'gnews'],
+  iot:  ['iot'],
+  rfid: ['rfid'],
+  dev:  ['dev'],
+};
+
+const TOPIC_FILTERS = {
+  ai:   [
+    { key: 'all', label: 'ALL' }, { key: 'model', label: 'MODEL' },
+    { key: 'research', label: 'RESEARCH' }, { key: 'business', label: 'BUSINESS' },
+    { key: 'safety', label: 'SAFETY' }, { key: 'tools', label: 'TOOLS' },
+  ],
+  iot:  [
+    { key: 'all', label: 'ALL' }, { key: 'hardware', label: 'HARDWARE' },
+    { key: 'connectivity', label: 'CONNECTIVITY' }, { key: 'industry', label: 'INDUSTRY' },
+    { key: 'security', label: 'SECURITY' }, { key: 'platform', label: 'PLATFORM' },
+  ],
+  rfid: [
+    { key: 'all', label: 'ALL' }, { key: 'hardware', label: 'HARDWARE' },
+    { key: 'retail', label: 'RETAIL' }, { key: 'logistics', label: 'LOGISTICS' },
+    { key: 'healthcare', label: 'HEALTHCARE' }, { key: 'standard', label: 'STANDARD' },
+  ],
+  dev:  [
+    { key: 'all', label: 'ALL' }, { key: 'agent', label: 'AGENT' },
+    { key: 'rag', label: 'RAG' }, { key: 'llm', label: 'LLM' },
+    { key: 'vlm', label: 'VLM' }, { key: 'tooling', label: 'TOOLING' },
+    { key: 'skill', label: 'SKILL' },
+  ],
+};
+
+function mergeAllSources() {
+  const seen = new Set();
+  const merged = [];
+  let uid = 1;
+  for (const src of (TOPIC_SOURCES[activeTopic] || [])) {
+    for (const item of (allSourceData[src] || [])) {
+      const key = (item.title || '').toLowerCase().replace(/[^a-z0-9\u0400-\u04ff]/g, '').slice(0, 50);
+      if (!seen.has(key)) {
+        seen.add(key);
+        merged.push({ ...item, id: uid++ });
+      }
+    }
+  }
+  return merged;
+}
+
+function renderFilters(topic) {
+  const row = document.getElementById('filterRow');
+  row.innerHTML = TOPIC_FILTERS[topic].map(f =>
+    `<button class="filter-tag${f.key === 'all' ? ' active' : ''}" data-topic="${f.key}" onclick="setFilter(this, '${f.key}')">${f.label}</button>`
+  ).join('');
+  currentFilter = 'all';
+}
+
+function setTopic(topic) {
+  activeTopic = topic;
+  document.querySelectorAll('#topicTabs .source-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`#topicTabs .source-tab[data-topic="${topic}"]`).classList.add('active');
+  renderFilters(topic);
+  allNews = mergeAllSources();
+  if (allNews.length) {
+    renderNews(allNews);
+  } else {
+    document.getElementById('newsContainer').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">◈</div>
+        <div class="empty-text">Press REFRESH to load ${topic.toUpperCase()} news</div>
+        <div class="empty-sub">// AI PULSE — ${topic.toUpperCase()} sources ready</div>
+      </div>
+    `;
+  }
+}
+
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+const CACHE_KEY = 'ai-pulse-all-news';
+const CACHE_TIME_KEY = 'ai-pulse-all-news-time';
+const API_URL_KEY = 'ai-pulse-api-url';
+const REFRESH_KEY = 'ai-pulse-refresh';
+
+const CATEGORY_COLORS = {
+  'model': 'cat-model', 'research': 'cat-research', 'business': 'cat-business',
+  'safety': 'cat-safety', 'tools': 'cat-tools',
+  'hardware': 'cat-model', 'connectivity': 'cat-research', 'industry': 'cat-business',
+  'security': 'cat-safety', 'platform': 'cat-tools',
+  'retail': 'cat-model', 'logistics': 'cat-research', 'healthcare': 'cat-business',
+  'standard': 'cat-safety',
+  'agent': 'cat-model', 'rag': 'cat-research', 'llm': 'cat-business',
+  'vlm': 'cat-safety', 'tooling': 'cat-tools', 'skill': 'cat-skill',
+};
+
+const CATEGORY_LABELS = {
+  'model': 'MODEL', 'research': 'RESEARCH', 'business': 'BUSINESS',
+  'safety': 'SAFETY', 'tools': 'TOOLS',
+  'hardware': 'HARDWARE', 'connectivity': 'CONNECTIVITY', 'industry': 'INDUSTRY',
+  'security': 'SECURITY', 'platform': 'PLATFORM',
+  'retail': 'RETAIL', 'logistics': 'LOGISTICS', 'healthcare': 'HEALTHCARE',
+  'standard': 'STANDARD',
+  'agent': 'AGENT', 'rag': 'RAG', 'llm': 'LLM',
+  'vlm': 'VLM', 'tooling': 'TOOLING', 'skill': 'SKILL',
+};
+
+// ── Read-tracking (localStorage) ────────────────────────────────
+const READ_IDS_KEY = 'ai-pulse-read-ids';
+const SHOW_READ_KEY = 'ai-pulse-show-read';
+let readIds = new Set();
+// Default: show everything (read just fades). User can opt-in to hide.
+let showRead = true;
+try {
+  const raw = localStorage.getItem(READ_IDS_KEY);
+  if (raw) readIds = new Set(JSON.parse(raw));
+  const stored = localStorage.getItem(SHOW_READ_KEY);
+  if (stored !== null) showRead = stored === '1';
+} catch (e) {}
+
+function updateReadInfo() {
+  const el = document.getElementById('readInfo');
+  if (el) el.textContent = `${readIds.size} уншсан`;
+}
+
+function resetReadIds() {
+  readIds = new Set();
+  try { localStorage.removeItem(READ_IDS_KEY); } catch (e) {}
+  updateReadInfo();
+  if (allNews.length) renderNews(allNews);
+}
+
+function articleHash(item) {
+  // Stable across server restarts: based on title + url, not session id
+  const base = ((item.title || '') + '|' + (item.url || '')).toLowerCase();
+  let h = 0;
+  for (let i = 0; i < base.length; i++) h = ((h << 5) - h + base.charCodeAt(i)) | 0;
+  return String(h);
+}
+
+function isRead(item) { return readIds.has(articleHash(item)); }
+
+function markRead(item) {
+  readIds.add(articleHash(item));
+  // Cap at 500 to avoid unbounded growth (FIFO)
+  if (readIds.size > 500) {
+    readIds = new Set(Array.from(readIds).slice(-500));
+  }
+  try { localStorage.setItem(READ_IDS_KEY, JSON.stringify(Array.from(readIds))); } catch (e) {}
+  updateReadInfo();
+}
+
+function getFaviconUrl(urlOrSource) {
+  try {
+    if (urlOrSource && urlOrSource.startsWith('http')) {
+      const domain = new URL(urlOrSource).hostname;
+      return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+    }
+  } catch(e) {}
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(urlOrSource)}&sz=32`;
+}
+
+function cleanCategory(cat) {
+  if (!cat) return 'tools';
+  const first = cat.split('|')[0].trim().toLowerCase();
+  return CATEGORY_COLORS[first] ? first : 'tools';
+}
+
+// Load settings
+const DEFAULT_API_URL = window.location.origin;
+
+function getApiUrl() {
+  return localStorage.getItem(API_URL_KEY) || DEFAULT_API_URL;
+}
+
+function getRefreshInterval() {
+  return parseInt(localStorage.getItem(REFRESH_KEY) || '600', 10);
+}
+
+function init() {
+  // Restore settings
+  document.getElementById('apiUrl').value = getApiUrl();
+  document.getElementById('refreshInterval').value = getRefreshInterval();
+  renderFilters('ai');
+
+  // Load cached news (all sources)
+  const cached = localStorage.getItem(CACHE_KEY);
+  if (cached) {
+    try {
+      allSourceData = JSON.parse(cached);
+      allNews = mergeAllSources();
+      renderNews(allNews);
+      updateStats(true);
+    } catch (e) { /* ignore */ }
+  }
+
+  // Save settings on change
+  document.getElementById('apiUrl').addEventListener('change', function() {
+    localStorage.setItem(API_URL_KEY, this.value.trim());
+  });
+
+  document.getElementById('refreshInterval').addEventListener('change', function() {
+    const val = Math.max(5, Math.min(1440, parseInt(this.value) || 600));
+    this.value = val;
+    localStorage.setItem(REFRESH_KEY, val);
+    setupAutoRefresh();
+  });
+
+  // Show-read toggle
+  const showReadEl = document.getElementById('showReadToggle');
+  showReadEl.checked = showRead;
+  showReadEl.addEventListener('change', function() {
+    showRead = this.checked;
+    try { localStorage.setItem(SHOW_READ_KEY, showRead ? '1' : '0'); } catch (e) {}
+    if (allNews.length) renderNews(allNews);
+  });
+  updateReadInfo();
+
+  updateCacheInfo();
+  updateLastUpdated();
+  setupAutoRefresh();
+  setupPullToRefresh();
+  setupOnlineStatus();
+  setupScrollHandlers();
+
+  // Register service worker + setup push
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js')
+      .then(() => setupPushNotifications())
+      .catch(() => {});
+  }
+
+  // Load from server cache (no re-fetching, just returns what server has)
+  if (navigator.onLine) {
+    loadFromServerCache();
+  }
+}
+
+async function loadFromServerCache() {
+  const apiUrl = getApiUrl();
+  if (!apiUrl) return;
+
+  try {
+    const response = await fetch(`${apiUrl}/api/news/cached`);
+    const data = await response.json();
+
+    let hasNews = false;
+    for (const src of ALL_SOURCES) {
+      if (data[src] && data[src].news && data[src].news.length > 0) {
+        allSourceData[src] = data[src].news;
+        hasNews = true;
+      }
+    }
+
+    if (hasNews) {
+      localStorage.setItem(CACHE_KEY, JSON.stringify(allSourceData));
+      localStorage.setItem(CACHE_TIME_KEY, new Date().toISOString());
+      allNews = mergeAllSources();
+      renderNews(allNews);
+      updateStats(true);
+      updateCacheInfo();
+      updateLastUpdated();
+    } else {
+      // Server cache empty (cold start / restart) — trigger a live fetch
+      // so the user sees news without having to press REFRESH manually.
+      const hasLocalCache = Object.values(allSourceData).some(arr => arr.length > 0);
+      if (!hasLocalCache && navigator.onLine) {
+        fetchNews();
+      }
+    }
+  } catch (e) {
+    // Server unreachable — localStorage cache already shown from init
+  }
+}
+
+function setupAutoRefresh() {
+  if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+  const mins = getRefreshInterval();
+  autoRefreshTimer = setInterval(() => {
+    const hasAnyData = Object.values(allSourceData).some(arr => arr.length > 0);
+    if (!isLoading && hasAnyData && navigator.onLine) fetchNews();
+  }, mins * 60 * 1000);
+}
+
+function setupOnlineStatus() {
+  const banner = document.getElementById('offlineBanner');
+  const update = () => {
+    if (!navigator.onLine) {
+      banner.classList.add('visible');
+    } else {
+      banner.classList.remove('visible');
+    }
+  };
+  window.addEventListener('online', update);
+  window.addEventListener('offline', update);
+  update();
+}
+
+// Pull-to-refresh for mobile
+function setupPullToRefresh() {
+  let startY = 0;
+  let pulling = false;
+  const indicator = document.getElementById('pullIndicator');
+
+  document.addEventListener('touchstart', (e) => {
+    if (window.scrollY === 0 && !isLoading) {
+      startY = e.touches[0].clientY;
+      pulling = true;
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchmove', (e) => {
+    if (!pulling) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy > 60) {
+      indicator.classList.add('visible');
+      indicator.textContent = '↑ СУЛЛАНА УУ';
+    } else if (dy > 20) {
+      indicator.classList.add('visible');
+      indicator.textContent = '↓ ШИНЭЧЛЭХИЙН ТУЛД ДООШ ТАТНА УУ';
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchend', () => {
+    if (!pulling) return;
+    pulling = false;
+    if (indicator.classList.contains('visible') && indicator.textContent.includes('СУЛЛАНА')) {
+      fetchNews();
+    }
+    indicator.classList.remove('visible');
+  }, { passive: true });
+}
+
+async function fetchNews() {
+  if (isLoading) return;
+
+  const apiUrl = getApiUrl();
+  if (!apiUrl) {
+    document.getElementById('errorMsg').textContent = '⚠ ТОХИРГОО: API серверийн URL оруулна уу';
+    document.getElementById('errorMsg').classList.add('visible');
+    toggleSettings();
+    return;
+  }
+
+  isLoading = true;
+  const btn = document.getElementById('fetchBtn');
+  const errorMsg = document.getElementById('errorMsg');
+
+  btn.disabled = true;
+  btn.textContent = '⟳ ТАТАЖ БАЙНА...';
+  errorMsg.classList.remove('visible');
+
+  document.getElementById('newsContainer').innerHTML = `
+    <div class="loading">
+      <div class="loading-text">// FETCHING ALL NEWS — AI · IoT · RFID · DEV</div>
+      <svg class="pulse-wave" viewBox="0 0 240 50">
+        <path class="pulse-line" d="M0,25 L50,25 L70,25 L82,6 L95,44 L108,16 L116,34 L124,25 L170,25 L240,25" />
+        <circle class="pulse-dot" cx="95" cy="25" r="3" />
+      </svg>
+      <div class="loading-text" style="opacity:0.5">AI PULSE — PROCESSING ALL SOURCES...</div>
+    </div>
+  `;
+
+  try {
+    const response = await fetch(`${apiUrl}/api/news/all`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    const data = await response.json();
+    if (data.error) throw new Error(data.error);
+
+    // Collect errors from individual sources
+    const errors = [];
+    for (const src of ALL_SOURCES) {
+      if (data[src]) {
+        allSourceData[src] = data[src].news || [];
+        if (data[src].error) errors.push(`${src}: ${data[src].error}`);
+      }
+    }
+
+    // Show partial errors if any
+    if (errors.length > 0 && errors.length < 3) {
+      errorMsg.textContent = `⚠ Зарим эх сурвалжаас алдаа: ${errors.join('; ')}`;
+      errorMsg.classList.add('visible');
+    }
+
+    // Save all sources to localStorage
+    localStorage.setItem(CACHE_KEY, JSON.stringify(allSourceData));
+    localStorage.setItem(CACHE_TIME_KEY, new Date().toISOString());
+
+    allNews = mergeAllSources();
+    renderNews(allNews);
+    updateStats(false);
+    updateCacheInfo();
+    updateLastUpdated();
+
+  } catch (err) {
+    console.error(err);
+    errorMsg.textContent = `⚠ АЛДАА: ${err.message}`;
+    errorMsg.classList.add('visible');
+
+    // Fall back to cache
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      allSourceData = JSON.parse(cached);
+      allNews = mergeAllSources();
+      renderNews(allNews);
+      updateStats(true);
+    } else {
+      document.getElementById('newsContainer').innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">⚠</div>
+          <div class="empty-text">Мэдээ татахад алдаа гарлаа</div>
+          <div class="empty-sub">// Дахин оролдоно уу</div>
+        </div>
+      `;
+    }
+  }
+
+  btn.disabled = false;
+  btn.textContent = '▶ REFRESH';
+  isLoading = false;
+}
+
+function renderNews(news) {
+  let filtered = currentFilter === 'all' ? news : news.filter(n => cleanCategory(n.category) === currentFilter);
+  if (!showRead) filtered = filtered.filter(n => !isRead(n));
+
+  if (!filtered.length) {
+    const allReadButHidden = !showRead && news.some(n => isRead(n));
+    document.getElementById('newsContainer').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">◈</div>
+        <div class="empty-text">${allReadButHidden ? 'Шинэ мэдээ алга — бүгдийг уншсан байна' : 'Энэ ангиллаар мэдээ олдсонгүй'}</div>
+        ${allReadButHidden ? '<div class="empty-sub">// Тохиргооноос "Уншсаныг харуулах"-ыг нээгээрэй</div>' : ''}
+      </div>
+    `;
+    return;
+  }
+
+  const sorted = [...filtered].sort((a, b) => b.importance - a.importance);
+
+  const html = sorted.map((item, i) => {
+    const cat = cleanCategory(item.category);
+    const catClass = CATEGORY_COLORS[cat];
+    const catLabel = CATEGORY_LABELS[cat];
+    const delay = i * 0.06;
+    const imp = Math.min(10, Math.max(0, Number(item.importance) || 0));
+    const faviconUrl = getFaviconUrl(item.url || item.source);
+
+    // Build importance dots
+    let dots = '';
+    for (let d = 1; d <= 10; d++) {
+      const filled = d <= imp;
+      const high = imp >= 8 && filled;
+      dots += `<div class="importance-dot${filled ? ' filled' : ''}${high ? ' high' : ''}"></div>`;
+    }
+
+    const readClass = isRead(item) ? ' read' : '';
+
+    return `
+      <div class="news-card ${item.featured ? 'featured' : ''}${readClass}"
+           style="animation-delay: ${delay}s"
+           onclick="openModal(${Number(item.id)})">
+        <div class="card-meta">
+          <span class="card-category ${catClass}">${catLabel}</span>
+          <span class="card-time">${esc(item.timeAgo)}</span>
+        </div>
+        <div class="card-title">${esc(item.title)}</div>
+        <div class="card-summary">${esc(item.summary)}</div>
+        <div class="card-footer">
+          <div class="card-source">
+            <img class="source-favicon" src="${faviconUrl}" alt="" onerror="this.style.display='none'">
+            ${esc(item.source)}
+          </div>
+          <div class="card-importance-bar">
+            <div class="importance-dots">${dots}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('newsContainer').innerHTML = `<div class="news-grid">${html}</div>`;
+}
+
+function updateStats(fromCache) {
+  updateTabCounts();
+  updateLastUpdated();
+}
+
+
+function setFilter(el, topic) {
+  document.querySelectorAll('.filter-tag').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  currentFilter = topic;
+  if (allNews.length) renderNews(allNews);
+}
+
+function openModal(id) {
+  const item = allNews.find(n => Number(n.id) === Number(id));
+  if (!item) return;
+  markRead(item);
+  const cat = cleanCategory(item.category);
+  const catClass = CATEGORY_COLORS[cat];
+  const catLabel = CATEGORY_LABELS[cat];
+  const safeId = Number(item.id);
+
+  const imp = Number(item.importance) || 0;
+  const faviconUrl = getFaviconUrl(item.url || item.source);
+
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-header-meta">
+      <span class="card-category ${catClass}">${catLabel}</span>
+      <span class="modal-time">${esc(item.timeAgo)}</span>
+    </div>
+    <div class="modal-title">${esc(item.title)}</div>
+    <div class="modal-detail">${esc(item.detail)}</div>
+    <div class="modal-info-tags">
+      <span class="modal-tag modal-tag-source">
+        <img src="${faviconUrl}" alt="" style="width:14px;height:14px;border-radius:3px" onerror="this.style.display='none'">
+        ${esc(item.source)}
+      </span>
+      <span class="modal-tag ${imp >= 8 ? 'modal-tag-importance high' : 'modal-tag-importance'}">
+        ${imp >= 8 ? '&#9733;' : '&#9670;'} ${imp}/10
+      </span>
+    </div>
+    <div class="modal-actions">
+      <button class="source-btn" onclick="openSource(${safeId})">&#8599; ЭХ МЭДЭЭГ УНШИХ</button>
+      <div class="ai-buttons">
+        <div class="ai-buttons-label">AI-тай дэлгэрүүлж ярилцах</div>
+        <div class="ai-buttons-row">
+          <button class="ai-btn ai-btn-claude" onclick="openAI('claude', ${safeId})">
+            <div class="ai-btn-icon">C</div>
+            <span>Claude</span>
+          </button>
+          <button class="ai-btn ai-btn-chatgpt" onclick="openAI('chatgpt', ${safeId})">
+            <div class="ai-btn-icon">G</div>
+            <span>ChatGPT</span>
+          </button>
+          <button class="ai-btn ai-btn-gemini" onclick="openAI('gemini', ${safeId})">
+            <div class="ai-btn-icon">G</div>
+            <span>Gemini</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('modalOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  // Show scroll hint if content overflows
+  requestAnimationFrame(() => {
+    const modal = document.getElementById('modalContent');
+    if (modal.scrollHeight > modal.clientHeight) {
+      const hint = document.createElement('div');
+      hint.className = 'modal-scroll-hint';
+      hint.textContent = '↓ ДООШ ГҮЙЛГЭНЭ ҮҮ';
+      document.getElementById('modalBody').appendChild(hint);
+      modal.addEventListener('scroll', function onScroll() {
+        if (modal.scrollTop > 20) { hint.remove(); modal.removeEventListener('scroll', onScroll); }
+      });
+    }
+  });
+}
+
+function openSource(id) {
+  const item = allNews.find(n => Number(n.id) === Number(id));
+  if (!item) return;
+  if (item.url) {
+    window.open(item.url, '_blank');
+  } else {
+    const query = encodeURIComponent(`${item.title} ${item.source}`);
+    window.open(`https://www.google.com/search?q=${query}`, '_blank');
+  }
+}
+
+function openAI(platform, id) {
+  const item = allNews.find(n => Number(n.id) === Number(id));
+  if (!item) return;
+
+  const prompt = `Энэ AI мэдээний талаар дэлгэрүүлж ярилцъя:\n\n"${item.title}"\n\n${item.detail}\n\nЭх сурвалж: ${item.source}`;
+  const encoded = encodeURIComponent(prompt);
+
+  const urls = {
+    claude: `https://claude.ai/new?q=${encoded}`,
+    chatgpt: `https://chat.openai.com/?q=${encoded}`,
+    gemini: `https://aistudio.google.com/prompts/new_chat?q=${encoded}`,
+  };
+
+  window.open(urls[platform], '_blank');
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('modalOverlay')) {
+    document.getElementById('modalOverlay').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+}
+
+function closeModalBtn() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function toggleSettings() {
+  const panel = document.getElementById('settingsPanel');
+  const backdrop = document.getElementById('settingsBackdrop');
+  const isOpen = panel.classList.contains('open');
+  panel.classList.toggle('open');
+  backdrop.classList.toggle('open');
+  if (isOpen) updateCacheInfo();
+}
+
+function clearCache() {
+  localStorage.removeItem(CACHE_KEY);
+  localStorage.removeItem(CACHE_TIME_KEY);
+  // Also remove old per-tab cache keys
+  ['google','newsapi','gnews'].forEach(t => {
+    localStorage.removeItem(`ai-pulse-news-${t}`);
+    localStorage.removeItem(`ai-pulse-news-time-${t}`);
+  });
+  updateCacheInfo();
+  allNews = [];
+  allSourceData = { google: [], newsapi: [], gnews: [], iot: [], rfid: [], dev: [] };
+  document.getElementById('newsContainer').innerHTML = `
+    <div class="empty-state">
+      <div class="empty-icon">◈</div>
+      <div class="empty-text">Кэш цэвэрлэгдсэн</div>
+      <div class="empty-sub">// Мэдээ дахин татна уу</div>
+    </div>
+  `;
+}
+
+function updateCacheInfo() {
+  const cached = localStorage.getItem(CACHE_KEY);
+  const time = localStorage.getItem(CACHE_TIME_KEY);
+  const info = document.getElementById('cacheInfo');
+  if (cached && time) {
+    const data = JSON.parse(cached);
+    const total = ALL_SOURCES.reduce((s,k) => s + (data[k]?.length || 0), 0);
+    const d = new Date(time);
+    info.textContent = `${total} мэдээ (${ALL_SOURCES.length} эх) • ${d.toLocaleDateString('mn-MN')} ${d.toLocaleTimeString('mn-MN', {hour:'2-digit', minute:'2-digit'})}`;
+  } else {
+    info.textContent = 'Кэш хоосон';
+  }
+}
+
+function updateTabCounts() {}
+
+function updateLastUpdated() {
+  const time = localStorage.getItem(CACHE_TIME_KEY);
+  const el = document.getElementById('lastUpdated');
+  if (time && el) {
+    const d = new Date(time);
+    const diffMin = Math.floor((Date.now() - d.getTime()) / 60000);
+    let label;
+    if (diffMin < 1) label = 'дөнгөж сая';
+    else if (diffMin < 60) label = `${diffMin} мин өмнө`;
+    else if (diffMin < 60 * 24) label = `${Math.floor(diffMin / 60)} цаг өмнө`;
+    else label = `${Math.floor(diffMin / (60 * 24))} өдөр өмнө`;
+    el.textContent = label;
+    el.title = d.toLocaleString('mn-MN');
+  }
+}
+
+// Refresh the "last updated" badge every minute so users see it tick
+setInterval(updateLastUpdated, 60_000);
+
+// Scroll-to-top visibility
+function setupScrollHandlers() {
+  const scrollBtn = document.getElementById('scrollTopBtn');
+  const toolbar = document.getElementById('stickyToolbar');
+  let lastScroll = 0;
+
+  window.addEventListener('scroll', () => {
+    const y = window.scrollY;
+    // Scroll to top button
+    if (y > 400) {
+      scrollBtn.classList.add('visible');
+    } else {
+      scrollBtn.classList.remove('visible');
+    }
+    // Sticky toolbar shadow
+    if (toolbar) {
+      if (y > 60) {
+        toolbar.classList.add('scrolled');
+      } else {
+        toolbar.classList.remove('scrolled');
+      }
+    }
+    lastScroll = y;
+  }, { passive: true });
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.getElementById('modalOverlay').classList.remove('open');
+    document.body.style.overflow = '';
+    const panel = document.getElementById('settingsPanel');
+    if (panel.classList.contains('open')) toggleSettings();
+  }
+});
+
+// Swipe down to close modal on mobile
+let modalTouchStart = 0;
+let modalScrollAtStart = 0;
+const modalEl = document.getElementById('modalContent');
+modalEl.addEventListener('touchstart', (e) => {
+  modalTouchStart = e.touches[0].clientY;
+  modalScrollAtStart = modalEl.scrollTop;
+}, { passive: true });
+
+modalEl.addEventListener('touchend', (e) => {
+  const dy = e.changedTouches[0].clientY - modalTouchStart;
+  if (dy > 80 && modalScrollAtStart <= 0) {
+    document.getElementById('modalOverlay').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+}, { passive: true });
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+}
+
+async function setupPushNotifications() {
+  if (!('PushManager' in window) || !('Notification' in window)) return;
+  try {
+    const apiUrl = getApiUrl();
+    const keyRes = await fetch(`${apiUrl}/api/vapid-public-key`);
+    const { publicKey } = await keyRes.json();
+
+    const registration = await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+
+    if (!subscription) {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') return;
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+    }
+
+    // Register subscription with server (in case server restarted)
+    fetch(`${apiUrl}/api/subscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(subscription),
+    }).catch(() => {});
+  } catch (e) {
+    console.error('Push setup error:', e);
+  }
+}
+
+// Init
+init();
+</script>
+</body>
+</html>

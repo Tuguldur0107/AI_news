@@ -5,1856 +5,537 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>AI PULSE — Хиймэл оюун мэдээ</title>
 
-<!-- PWA -->
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#050508">
-
-<!-- iOS PWA -->
+<meta name="theme-color" content="#F3F3F0" id="themeColorMeta">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="AI PULSE">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 
 <style>
-  /* Calibri font stack */
-
-  :root {
-    --bg: #050508;
-    --surface: #0d0d14;
-    --border: #1a1a2e;
-    --accent: #00ff88;
-    --accent2: #ff3366;
-    --accent3: #7b61ff;
-    --text: #e8e8f0;
-    --muted: #5a5a7a;
-    --card: #0f0f1a;
-    --safe-top: env(safe-area-inset-top, 0px);
-    --safe-bottom: env(safe-area-inset-bottom, 0px);
-    --safe-left: env(safe-area-inset-left, 0px);
-    --safe-right: env(safe-area-inset-right, 0px);
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  ::-webkit-scrollbar { width: 0; background: transparent; }
-  html { scrollbar-width: none; overflow-x: hidden; }
-
-  body {
-    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    min-height: 100dvh;
-    overflow-x: hidden;
-    -webkit-user-select: none;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  /* Background grid — applied directly to body to avoid pseudo-element overflow */
-  body {
-    background-image:
-      linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
-    background-size: 40px 40px;
-    /* background-attachment: scroll for mobile perf */
-  }
-
-
-  .top-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
-    padding-top: var(--safe-top);
-  }
-
-  .top-bar-right {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .last-updated {
-    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    font-size: 9px;
-    color: var(--muted);
-    letter-spacing: 0.5px;
-    opacity: 0.7;
-  }
-
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .logo-icon {
-    width: 32px;
-    height: 32px;
-    background: var(--accent);
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    font-weight: 400;
-    color: #000;
-    font-size: 12px;
-    animation: pulse-glow 2s ease-in-out infinite;
-    flex-shrink: 0;
-  }
-
-  @keyframes pulse-glow {
-    0%, 100% { box-shadow: 0 0 10px rgba(0,255,136,0.5); }
-    50% { box-shadow: 0 0 25px rgba(0,255,136,0.9), 0 0 50px rgba(0,255,136,0.3); }
-  }
-
-  .logo-text {
-    font-size: 18px;
-    font-weight: 400;
-    letter-spacing: 4px;
-    text-transform: uppercase;
-    color: var(--accent);
-  }
-
-
-  /* Main layout */
-  .container {
-    position: relative;
-    z-index: 5;
-    max-width: 100%;
-    margin: 0;
-    padding: 16px;
-    padding-left: calc(16px + var(--safe-left));
-    padding-right: calc(16px + var(--safe-right));
-    padding-bottom: calc(16px + var(--safe-bottom));
-  }
-
-  /* Pull to refresh indicator */
-  .pull-indicator {
-    text-align: center;
-    padding: 0;
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.3s, padding 0.3s;
-    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    font-size: 11px;
-    color: var(--accent);
-    letter-spacing: 2px;
-  }
-
-  .pull-indicator.visible {
-    max-height: 50px;
-    padding: 12px 0;
-  }
-
-  /* Source tabs */
-  .source-tabs {
-    display: flex;
-    gap: 0;
-    margin-bottom: 16px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    overflow: hidden;
-  }
-
-  .source-tab {
-    flex: 1;
-    background: transparent;
-    border: none;
-    color: var(--muted);
-    padding: 12px 8px;
-    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    font-size: 11px;
-    font-weight: 400;
-    letter-spacing: 0.5px;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-align: center;
-    -webkit-tap-highlight-color: transparent;
-    position: relative;
-  }
-
-  .source-tab + .source-tab {
-    border-left: 1px solid var(--border);
-  }
-
-  .source-tab:hover { color: var(--text); background: rgba(255,255,255,0.03); }
-
-  .source-tab.active {
-    color: #000;
-    background: var(--accent);
-  }
-
-  .tab-count {
-    display: inline-block;
-    font-size: 9px;
-    opacity: 0.7;
-    margin-left: 2px;
-  }
-
-  .source-tab.active .tab-count { opacity: 0.6; }
-
-  /* Controls */
-  .controls {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 24px;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .fetch-btn {
-    background: var(--accent);
-    color: #000;
-    border: none;
-    padding: 12px 24px;
-    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    font-weight: 400;
-    font-size: 13px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all 0.2s;
-    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-  }
-
-  .fetch-btn:hover {
-    background: #00ffaa;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 20px rgba(0,255,136,0.4);
-  }
-
-  .fetch-btn:active {
-    transform: scale(0.97);
-  }
-
-  .fetch-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-    transform: none;
-  }
-
-  .topic-filters {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-
-  .topic-filters::-webkit-scrollbar { display: none; }
-
-  .filter-tag {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--muted);
-    padding: 8px 14px;
-    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    font-size: 10px;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    white-space: nowrap;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-  }
-
-  .filter-tag:hover, .filter-tag.active {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: rgba(0,255,136,0.05);
-  }
-
-  /* News grid */
-  .news-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-  }
-
-  .news-card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px;
-    position: relative;
-    overflow: hidden;
-    animation: fadeInUp 0.4s ease forwards;
-    opacity: 0;
-    transition: border-color 0.3s, transform 0.2s, box-shadow 0.3s;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .news-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, var(--accent), var(--accent3));
-    transform: scaleX(0);
-    transform-origin: left;
-    transition: transform 0.3s;
-    border-radius: 12px 12px 0 0;
-  }
-
-  .news-card:hover::before { transform: scaleX(1); }
-  .news-card:hover {
-    border-color: rgba(0,255,136,0.25);
-    transform: translateY(-3px);
-    box-shadow: 0 8px 32px rgba(0,255,136,0.08), 0 0 0 1px rgba(0,255,136,0.1);
-  }
-
-  .news-card:active {
-    transform: scale(0.98);
-  }
-
-  .news-card.featured {
-    grid-column: span 2;
-    border-color: rgba(0,255,136,0.2);
-    background: linear-gradient(135deg, var(--card) 0%, rgba(0,255,136,0.03) 100%);
-  }
-
-  @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .card-meta {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-  }
-
-  .card-category {
-    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    font-size: 9px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    padding: 3px 8px;
-    border-radius: 2px;
-  }
-
-  .cat-model { background: rgba(123,97,255,0.15); color: var(--accent3); border: 1px solid rgba(123,97,255,0.3); }
-  .cat-research { background: rgba(0,255,136,0.1); color: var(--accent); border: 1px solid rgba(0,255,136,0.2); }
-  .cat-business { background: rgba(255,51,102,0.1); color: var(--accent2); border: 1px solid rgba(255,51,102,0.2); }
-  .cat-safety { background: rgba(255,165,0,0.1); color: #ffa500; border: 1px solid rgba(255,165,0,0.2); }
-  .cat-tools { background: rgba(0,200,255,0.1); color: #00c8ff; border: 1px solid rgba(0,200,255,0.2); }
-  .cat-skill { background: rgba(255,105,180,0.1); color: #ff69b4; border: 1px solid rgba(255,105,180,0.25); }
-
-  /* Read state — already-opened articles fade slightly */
-  .news-card.read { opacity: 0.55; }
-  .news-card.read .card-title { color: var(--muted); }
-  .news-card.read:hover { opacity: 0.85; }
-
-  .card-time {
-    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    font-size: 9px;
-    color: var(--muted);
-  }
-
-  .card-title {
-    font-size: 15px;
-    font-weight: 400;
-    line-height: 1.4;
-    margin-bottom: 8px;
-    color: var(--text);
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  .news-card.featured .card-title { font-size: 18px; -webkit-line-clamp: 3; }
-
-  .card-summary {
-    font-size: 13px;
-    color: var(--muted);
-    line-height: 1.6;
-    margin-bottom: 0;
-    flex: 1;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  .news-card.featured .card-summary { -webkit-line-clamp: 4; }
-
-  .card-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    margin-top: auto;
-    padding-top: 12px;
-    border-top: 1px solid rgba(255,255,255,0.04);
-  }
-
-  .card-source {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    font-size: 10px;
-    color: var(--muted);
-    min-width: 0;
-    overflow: hidden;
-  }
-
-  .source-favicon {
-    width: 14px; height: 14px;
-    border-radius: 3px;
-    flex-shrink: 0;
-    background: var(--border);
-  }
-
-  .card-importance-bar {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    flex-shrink: 0;
-  }
-
-  .importance-dots {
-    display: flex;
-    gap: 2px;
-  }
-
-  .importance-dot {
-    width: 4px; height: 10px;
-    border-radius: 1px;
-    background: var(--border);
-    transition: background 0.2s;
-  }
-
-  .importance-dot.filled { background: var(--accent); }
-  .importance-dot.filled.high { background: var(--accent2); }
-
-  .importance-label {
-    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    font-size: 9px;
-    color: var(--muted);
-    opacity: 0.6;
-  }
-
-  /* Loading state */
-  .loading {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 50vh;
-    min-height: 50dvh;
-    gap: 16px;
-  }
-
-  /* Pulse wave SVG animation */
-  .pulse-wave {
-    width: 240px;
-    height: 50px;
-  }
-
-  .pulse-line {
-    fill: none;
-    stroke: #00ff88;
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-dasharray: 500;
-    stroke-dashoffset: 500;
-    animation: pulse-draw 2s ease-in-out infinite;
-  }
-
-  @keyframes pulse-draw {
-    0% { stroke-dashoffset: 500; }
-    50% { stroke-dashoffset: 0; }
-    100% { stroke-dashoffset: -500; }
-  }
-
-  .pulse-dot {
-    fill: #00ff88;
-    animation: pulse-dot-anim 2s ease-in-out infinite;
-  }
-
-  @keyframes pulse-dot-anim {
-    0%, 100% { opacity: 0; }
-    45%, 55% { opacity: 1; }
-  }
-
-  .loading-text {
-    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    font-size: 11px;
-    color: var(--muted);
-    letter-spacing: 2px;
-  }
-
-  /* Empty state */
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 50vh;
-    min-height: 50dvh;
-    gap: 14px;
-    text-align: center;
-    padding: 20px;
-  }
-
-  .empty-icon {
-    font-size: 40px;
-    opacity: 0.3;
-  }
-
-  .empty-text {
-    font-size: 16px;
-    font-weight: 400;
-    color: var(--muted);
-  }
-
-  .empty-sub {
-    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    font-size: 11px;
-    color: var(--muted);
-    opacity: 0.6;
-  }
-
-
-  /* Detail modal */
-  .modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.85);
-    z-index: 100;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 16px;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s;
-  }
-
-  .modal-overlay.open {
-    opacity: 1;
-    pointer-events: all;
-  }
-
-  .modal {
-    background: var(--card);
-    border: 1px solid rgba(0,255,136,0.2);
-    max-width: 680px;
-    width: 100%;
-    max-height: 85vh;
-    max-height: 85dvh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    padding: 28px;
-    padding-bottom: calc(28px + var(--safe-bottom));
-    position: relative;
-    transform: scale(0.95);
-    opacity: 0;
-    transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.3s;
-    border-radius: 12px;
-  }
-
-  .modal-overlay.open .modal { transform: scale(1); opacity: 1; }
-
-  .modal-handle {
-    width: 36px;
-    height: 4px;
-    background: var(--border);
-    border-radius: 2px;
-    margin: 0 auto 20px;
-  }
-
-  .modal-close {
-    position: absolute;
-    top: 16px; right: 16px;
-    background: none;
-    border: 1px solid var(--border);
-    color: var(--muted);
-    width: 36px; height: 36px;
-    cursor: pointer;
-    font-size: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-    border-radius: 8px;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .modal-close:hover {
-    border-color: var(--accent2);
-    color: var(--accent2);
-  }
-
-  .modal-header-meta {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 14px;
-    flex-wrap: wrap;
-  }
-
-  .modal-time {
-    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    font-size: 10px;
-    color: var(--muted);
-    letter-spacing: 0.5px;
-  }
-
-  .modal-title {
-    font-size: 22px;
-    font-weight: 400;
-    margin-bottom: 20px;
-    line-height: 1.3;
-    padding-right: 40px;
-    color: var(--accent);
-  }
-
-  .modal-detail {
-    font-size: 14px;
-    color: var(--muted);
-    line-height: 1.8;
-    user-select: text;
-    -webkit-user-select: text;
-    padding: 16px 0;
-    border-top: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-  }
-
-  .modal-info-tags {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-top: 16px;
-    padding: 12px 0;
-  }
-
-  .modal-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    font-size: 10px;
-    padding: 5px 10px;
-    border-radius: 4px;
-    letter-spacing: 0.5px;
-  }
-
-  .modal-tag-source {
-    background: rgba(0,255,136,0.08);
-    border: 1px solid rgba(0,255,136,0.2);
-    color: var(--accent);
-  }
-
-  .modal-tag-source img {
-    width: 14px; height: 14px;
-    border-radius: 3px;
-  }
-
-  .modal-tag-importance {
-    background: rgba(123,97,255,0.1);
-    border: 1px solid rgba(123,97,255,0.25);
-    color: var(--accent3);
-  }
-
-  .modal-tag-importance.high {
-    background: rgba(255,51,102,0.1);
-    border: 1px solid rgba(255,51,102,0.25);
-    color: var(--accent2);
-  }
-
-  /* Action buttons in modal */
-  .modal-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    margin-top: 16px;
-  }
-
-  .source-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    width: 100%;
-    padding: 14px;
-    background: linear-gradient(135deg, rgba(0,255,136,0.1), rgba(0,255,136,0.05));
-    border: 1px solid rgba(0,255,136,0.3);
-    border-radius: 10px;
-    color: var(--accent);
-    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    font-size: 12px;
-    font-weight: 400;
-    letter-spacing: 1px;
-    cursor: pointer;
-    transition: all 0.2s;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .source-btn:hover { background: linear-gradient(135deg, rgba(0,255,136,0.18), rgba(0,255,136,0.08)); box-shadow: 0 4px 16px rgba(0,255,136,0.15); }
-  .source-btn:active { transform: scale(0.98); }
-
-  .ai-buttons {
-    margin-top: 12px;
-    padding-top: 16px;
-    border-top: 1px solid var(--border);
-  }
-
-  .ai-buttons-label {
-    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    font-size: 10px;
-    color: var(--muted);
-    letter-spacing: 1px;
-    margin-bottom: 12px;
-    text-transform: uppercase;
-  }
-
-  .ai-buttons-row {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .ai-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 11px 16px;
-    border: 1px solid var(--border);
-    background: rgba(255,255,255,0.02);
-    color: var(--text);
-    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    font-size: 11px;
-    cursor: pointer;
-    transition: all 0.2s;
-    border-radius: 10px;
-    text-decoration: none;
-    -webkit-tap-highlight-color: transparent;
-    flex: 1;
-    justify-content: center;
-    min-width: 0;
-  }
-
-  .ai-btn:active { transform: scale(0.96); }
-
-  .ai-btn-icon {
-    width: 22px;
-    height: 22px;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    font-weight: 400;
-    flex-shrink: 0;
-  }
-
-  .ai-btn-claude .ai-btn-icon { background: linear-gradient(135deg, #d97706, #f59e0b); color: #fff; }
-  .ai-btn-claude:hover { border-color: #d97706; background: rgba(217,119,6,0.1); }
-
-  .ai-btn-chatgpt .ai-btn-icon { background: linear-gradient(135deg, #10a37f, #34d399); color: #fff; }
-  .ai-btn-chatgpt:hover { border-color: #10a37f; background: rgba(16,163,127,0.1); }
-
-  .ai-btn-gemini .ai-btn-icon { background: linear-gradient(135deg, #4285f4, #7c3aed); color: #fff; }
-  .ai-btn-gemini:hover { border-color: #4285f4; background: rgba(66,133,244,0.1); }
-
-  /* Scroll hint for modal */
-  .modal-scroll-hint {
-    text-align: center;
-    padding: 8px;
-    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    font-size: 9px;
-    color: var(--muted);
-    opacity: 0.5;
-    letter-spacing: 1px;
-    animation: scrollHintPulse 2s ease-in-out infinite;
-  }
-
-  @keyframes scrollHintPulse {
-    0%, 100% { opacity: 0.3; }
-    50% { opacity: 0.6; }
-  }
-
-  /* Settings panel */
-  .settings-btn {
-    background: none;
-    border: 1px solid var(--border);
-    color: var(--muted);
-    padding: 8px 12px;
-    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    font-size: 10px;
-    cursor: pointer;
-    transition: all 0.2s;
-    letter-spacing: 1px;
-    border-radius: 4px;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .settings-btn:hover { border-color: var(--accent3); color: var(--accent3); }
-
-  .settings-panel {
-    position: fixed;
-    top: 0;
-    right: 0;
-    width: 300px;
-    height: 100%;
-    background: var(--surface);
-    border-left: 1px solid var(--border);
-    transform: translateX(100%);
-    z-index: 200;
-    padding: 24px;
-    padding-top: calc(24px + var(--safe-top));
-    transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .settings-panel.open { transform: translateX(0); }
-
-  .settings-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.5);
-    z-index: 199;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s;
-  }
-
-  .settings-backdrop.open { opacity: 1; pointer-events: all; }
-
-  .settings-title {
-    font-size: 16px;
-    font-weight: 400;
-    color: var(--accent);
-    margin-bottom: 24px;
-    letter-spacing: 2px;
-  }
-
-  .settings-group {
-    margin-bottom: 20px;
-  }
-
-  .settings-label {
-    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    font-size: 10px;
-    color: var(--muted);
-    letter-spacing: 1px;
-    margin-bottom: 8px;
-    text-transform: uppercase;
-  }
-
-  .settings-input {
-    width: 100%;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 10px 12px;
-    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    font-size: 12px;
-    outline: none;
-    transition: border-color 0.2s;
-    border-radius: 4px;
-  }
-
-  .settings-input:focus { border-color: var(--accent); }
-
-  .settings-note {
-    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    font-size: 9px;
-    color: var(--muted);
-    opacity: 0.6;
-    margin-top: 6px;
-    line-height: 1.5;
-  }
-
-  .settings-close {
-    position: absolute;
-    top: 16px;
-    top: calc(16px + var(--safe-top));
-    right: 16px;
-    background: none;
-    border: 1px solid var(--border);
-    color: var(--muted);
-    width: 32px; height: 32px;
-    cursor: pointer;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 6px;
-  }
-
-  /* Offline banner */
-  .offline-banner {
-    display: none;
-    background: rgba(255,165,0,0.1);
-    border: 1px solid rgba(255,165,0,0.3);
-    padding: 10px 16px;
-    margin-bottom: 16px;
-    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    font-size: 11px;
-    color: #ffa500;
-    text-align: center;
-    letter-spacing: 1px;
-    border-radius: 4px;
-  }
-
-  .offline-banner.visible { display: block; }
-
-  /* Error state */
-  .error-msg {
-    background: rgba(255,51,102,0.1);
-    border: 1px solid rgba(255,51,102,0.3);
-    padding: 14px 18px;
-    margin-bottom: 20px;
-    font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', sans-serif;
-    font-size: 11px;
-    color: var(--accent2);
-    display: none;
-    border-radius: 4px;
-  }
-
-  .error-msg.visible { display: block; }
-
-
-  /* Scroll to top button */
-  .scroll-top {
-    position: fixed;
-    bottom: 24px;
-    right: 20px;
-    width: 44px;
-    height: 44px;
-    background: var(--accent);
-    color: #000;
-    border: none;
-    border-radius: 50%;
-    font-size: 18px;
-    cursor: pointer;
-    z-index: 50;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    pointer-events: none;
-    transform: translateY(10px);
-    transition: all 0.3s;
-    box-shadow: 0 4px 16px rgba(0,255,136,0.3);
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .scroll-top.visible {
-    opacity: 1;
-    pointer-events: all;
-    transform: translateY(0);
-  }
-
-  .scroll-top:active { transform: scale(0.9); }
-
-  /* Desktop responsive */
-  @media (min-width: 769px) {
-    .container { padding: 24px 48px; }
-    .modal { max-height: 80vh; }
-    .news-grid { gap: 20px; }
-    .news-card { padding: 22px; }
-    .controls { margin-bottom: 20px; }
-  }
-
-  @media (min-width: 1200px) {
-    .container { padding: 24px 80px; }
-    .news-grid { grid-template-columns: repeat(3, 1fr); }
-  }
-
-  /* Mobile responsive — only layout sizing changes */
-  @media (max-width: 768px) {
-    .news-grid { grid-template-columns: 1fr; gap: 12px; }
-    .news-card.featured { grid-column: span 1; }
-    .news-card { padding: 16px; }
-    .logo-text { font-size: 15px; letter-spacing: 3px; }
-    .fetch-btn { padding: 10px 18px; font-size: 12px; }
-  }
+:root{
+  --paper:#F3F3F0; --surface:#FFFFFF; --ink:#16171B; --ink-soft:#585B63;
+  --ink-faint:#9A9CA3; --hairline:#E4E4DF; --pulse:#E8482B;
+  --pulse-soft:rgba(232,72,43,.10); --shadow:0 1px 2px rgba(20,20,30,.04),0 8px 24px rgba(20,20,30,.05);
+  --serif:Georgia,"Times New Roman",serif;
+  --sans:-apple-system,"Segoe UI",Roboto,system-ui,sans-serif;
+  --safe-top:env(safe-area-inset-top,0px); --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --paper:#0D0E12; --surface:#15161C; --ink:#ECEDEA; --ink-soft:#9DA0A8;
+    --ink-faint:#696C74; --hairline:#24262D; --pulse:#FF5A3C;
+    --pulse-soft:rgba(255,90,60,.14); --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="light"]{
+  --paper:#F3F3F0; --surface:#FFFFFF; --ink:#16171B; --ink-soft:#585B63;
+  --ink-faint:#9A9CA3; --hairline:#E4E4DF; --pulse:#E8482B;
+  --pulse-soft:rgba(232,72,43,.10); --shadow:0 1px 2px rgba(20,20,30,.04),0 8px 24px rgba(20,20,30,.05);
+}
+:root[data-theme="dark"]{
+  --paper:#0D0E12; --surface:#15161C; --ink:#ECEDEA; --ink-soft:#9DA0A8;
+  --ink-faint:#696C74; --hairline:#24262D; --pulse:#FF5A3C;
+  --pulse-soft:rgba(255,90,60,.14); --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+::-webkit-scrollbar{width:0;background:transparent}
+html{scrollbar-width:none}
+body{
+  font-family:var(--sans); background:var(--paper); color:var(--ink);
+  min-height:100dvh; line-height:1.5; -webkit-font-smoothing:antialiased;
+  overflow-x:hidden; -webkit-tap-highlight-color:transparent;
+  transition:background .4s ease,color .4s ease;
+}
+.wrap{max-width:600px; margin:0 auto; padding:0 20px calc(56px + var(--safe-bottom))}
+
+/* Masthead */
+.mast{position:sticky; top:0; z-index:40; background:color-mix(in srgb,var(--paper) 88%,transparent); backdrop-filter:blur(14px) saturate(1.1); -webkit-backdrop-filter:blur(14px) saturate(1.1); border-bottom:1px solid var(--hairline); padding-top:var(--safe-top)}
+.mast-in{max-width:600px; margin:0 auto; padding:12px 20px; display:flex; align-items:center; justify-content:space-between}
+.wordmark{font-weight:800; font-size:16px; letter-spacing:2.5px; display:flex; align-items:center; gap:7px; color:var(--ink)}
+.pulse-dot{width:8px; height:8px; border-radius:50%; background:var(--pulse); position:relative; flex:none}
+.pulse-dot::after{content:""; position:absolute; inset:-4px; border-radius:50%; border:1px solid var(--pulse); opacity:.5; animation:ripple 2.4s ease-out infinite}
+@keyframes ripple{0%{transform:scale(.6);opacity:.6}100%{transform:scale(1.9);opacity:0}}
+.mast-right{display:flex; align-items:center; gap:4px}
+.updated{font-size:10.5px; color:var(--ink-faint); font-variant-numeric:tabular-nums; letter-spacing:.3px; margin-right:4px}
+.icon-btn{width:36px; height:36px; border:none; background:transparent; color:var(--ink-soft); border-radius:9px; cursor:pointer; font-size:16px; display:grid; place-items:center; transition:background .2s,color .2s}
+.icon-btn:hover{background:var(--pulse-soft); color:var(--ink)}
+.icon-btn:focus-visible{outline:2px solid var(--pulse); outline-offset:2px}
+.icon-btn.spin{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Tabs */
+.tabs{display:flex; gap:4px; max-width:600px; margin:0 auto; padding:6px 14px 0; overflow-x:auto; scrollbar-width:none; border-bottom:1px solid var(--hairline)}
+.tabs::-webkit-scrollbar{display:none}
+.tab{border:none; background:transparent; color:var(--ink-faint); font-family:var(--sans); font-size:13.5px; font-weight:600; letter-spacing:.3px; padding:11px 10px 12px; cursor:pointer; position:relative; white-space:nowrap; display:flex; align-items:center; gap:6px; transition:color .2s}
+.tab[aria-selected="true"]{color:var(--ink)}
+.tab[aria-selected="true"]::after{content:""; position:absolute; left:8px; right:8px; bottom:-1px; height:2px; background:var(--pulse); border-radius:2px}
+.tab .flame{width:6px; height:6px; border-radius:50%; background:var(--pulse); flex:none}
+.tab:focus-visible{outline:2px solid var(--pulse); outline-offset:-4px; border-radius:6px}
+
+/* Filter chips */
+.filters{display:flex; gap:7px; overflow-x:auto; scrollbar-width:none; padding:14px 0 2px; margin-bottom:-4px}
+.filters::-webkit-scrollbar{display:none}
+.filters.hidden{display:none}
+.chip{border:1px solid var(--hairline); background:transparent; color:var(--ink-soft); font-family:var(--sans); font-size:12px; font-weight:600; letter-spacing:.3px; padding:6px 13px; border-radius:100px; cursor:pointer; white-space:nowrap; transition:all .18s}
+.chip.active{background:var(--ink); color:var(--paper); border-color:var(--ink)}
+
+/* Eyebrow */
+.eyebrow{display:flex; align-items:center; gap:8px; margin:22px 0 4px; font-size:11px; text-transform:uppercase; letter-spacing:1.4px; color:var(--ink-faint); font-weight:700}
+.eyebrow .line{flex:1; height:1px; background:var(--hairline)}
+.eyebrow .fl{width:7px; height:7px; border-radius:50%; background:var(--pulse); flex:none}
+
+/* Hero */
+.hero{padding:18px 0 8px; border-bottom:1px solid var(--hairline); cursor:pointer}
+.band{aspect-ratio:16/9; border-radius:14px; margin-bottom:15px; position:relative; overflow:hidden; border:1px solid var(--hairline); box-shadow:var(--shadow)}
+.band .tex{position:absolute; inset:0; opacity:.5; background-image:linear-gradient(var(--hairline) 1px,transparent 1px),linear-gradient(90deg,var(--hairline) 1px,transparent 1px); background-size:22px 22px}
+.band .mono{position:absolute; right:14px; bottom:2px; font-family:var(--serif); font-size:110px; font-weight:700; color:var(--ink); opacity:.07; line-height:1}
+.kicker{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1.2px; color:var(--pulse)}
+.hero-title{font-family:var(--serif); font-size:28px; line-height:1.16; font-weight:700; letter-spacing:-.2px; margin:9px 0 10px; text-wrap:balance}
+.hero-dek{font-size:15.5px; color:var(--ink-soft); line-height:1.55; margin-bottom:13px}
+.meta{display:flex; align-items:center; gap:9px; font-size:12.5px; color:var(--ink-faint); font-variant-numeric:tabular-nums; flex-wrap:wrap}
+.meta .src{color:var(--ink-soft); font-weight:600}
+.meta .d{width:3px; height:3px; border-radius:50%; background:var(--ink-faint); flex:none}
+.hot{color:var(--pulse); font-weight:700}
+
+/* List */
+.feed{display:flex; flex-direction:column}
+.item{display:grid; grid-template-columns:1fr 76px; gap:15px; padding:17px 0; border-bottom:1px solid var(--hairline); cursor:pointer; align-items:start; transition:opacity .15s}
+.item:active{opacity:.6}
+.item-kicker{font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--ink-faint)}
+.item-title{font-size:16.5px; font-weight:650; line-height:1.32; margin:6px 0 6px; letter-spacing:-.1px; text-wrap:balance}
+.item-dek{font-size:13.5px; color:var(--ink-soft); line-height:1.5; margin-bottom:9px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+.thumb{width:76px; height:76px; border-radius:11px; border:1px solid var(--hairline); position:relative; overflow:hidden; background:var(--surface); flex:none}
+.thumb .tex{position:absolute; inset:0; opacity:.45; background-image:linear-gradient(var(--hairline) 1px,transparent 1px),linear-gradient(90deg,var(--hairline) 1px,transparent 1px); background-size:16px 16px}
+.thumb .mono{position:absolute; inset:0; display:grid; place-items:center; font-family:var(--serif); font-size:34px; font-weight:700; color:var(--ink); opacity:.16}
+.trend-row{display:grid; grid-template-columns:30px 1fr 60px; gap:13px}
+.trend-row .thumb{width:60px; height:60px}
+.rank{font-family:var(--serif); font-size:26px; font-weight:700; color:var(--pulse); width:30px; text-align:center; line-height:1.3; font-variant-numeric:tabular-nums; flex:none}
+.read .item-title,.read .hero-title{color:var(--ink-faint)}
+.read .thumb,.read .band{opacity:.5}
+
+/* Skeleton loading */
+.skel{padding:17px 0; border-bottom:1px solid var(--hairline); display:grid; grid-template-columns:1fr 76px; gap:15px}
+.sk{background:linear-gradient(90deg,var(--hairline) 25%,color-mix(in srgb,var(--hairline) 40%,transparent) 50%,var(--hairline) 75%); background-size:200% 100%; animation:sh 1.3s infinite; border-radius:6px}
+@keyframes sh{to{background-position:-200% 0}}
+.sk.t{height:13px; width:35%; margin-bottom:9px}
+.sk.h{height:17px; width:92%; margin-bottom:7px}
+.sk.h2{height:17px; width:70%; margin-bottom:10px}
+.sk.m{height:11px; width:45%}
+.sk.tb{width:76px; height:76px; border-radius:11px}
+
+/* Empty / error */
+.empty{padding:70px 20px; text-align:center}
+.empty .ic{font-size:30px; color:var(--ink-faint); margin-bottom:12px}
+.empty .tx{font-size:15px; color:var(--ink-soft); font-weight:600; margin-bottom:6px}
+.empty .sub{font-size:13px; color:var(--ink-faint); line-height:1.6}
+.retry{margin-top:14px; background:var(--pulse); color:#fff; border:none; padding:11px 20px; border-radius:11px; font-family:var(--sans); font-size:14px; font-weight:700; cursor:pointer}
+.errbar{background:var(--pulse-soft); color:var(--pulse); border:1px solid var(--pulse); border-radius:11px; padding:11px 14px; font-size:12.5px; margin:14px 0 0; display:none; font-weight:600}
+.errbar.on{display:block}
+.offline{background:var(--ink); color:var(--paper); text-align:center; font-size:11.5px; font-weight:600; padding:7px; letter-spacing:.4px; display:none}
+.offline.on{display:block}
+.pull{position:fixed; top:calc(var(--safe-top) + 6px); left:50%; transform:translateX(-50%); background:var(--surface); border:1px solid var(--hairline); color:var(--ink-soft); font-size:11px; font-weight:600; padding:8px 16px; border-radius:100px; z-index:50; opacity:0; pointer-events:none; transition:opacity .2s; box-shadow:var(--shadow); letter-spacing:.3px}
+.pull.on{opacity:1}
+
+/* Reading sheet */
+.sheet-back{position:fixed; inset:0; background:rgba(10,10,14,.5); backdrop-filter:blur(3px); opacity:0; pointer-events:none; transition:opacity .3s; z-index:60}
+.sheet-back.open{opacity:1; pointer-events:auto}
+.sheet{position:fixed; left:0; right:0; bottom:0; z-index:70; background:var(--surface); border-radius:22px 22px 0 0; max-width:600px; margin:0 auto; max-height:94dvh; overflow-y:auto; transform:translateY(100%); transition:transform .38s cubic-bezier(.32,.72,0,1); box-shadow:0 -10px 40px rgba(0,0,0,.25); padding:0 24px calc(40px + var(--safe-bottom))}
+.sheet.open{transform:translateY(0)}
+.grip{width:38px; height:4px; border-radius:3px; background:var(--hairline); margin:12px auto 4px}
+.sheet-band{aspect-ratio:16/9; border-radius:14px; margin:16px 0 18px; position:relative; overflow:hidden; border:1px solid var(--hairline)}
+.sheet-title{font-family:var(--serif); font-size:26px; line-height:1.2; font-weight:700; letter-spacing:-.2px; margin:12px 0 14px; text-wrap:balance}
+.sheet-detail{font-size:16px; line-height:1.72; color:var(--ink); margin:16px 0 22px}
+.tags{display:flex; flex-wrap:wrap; gap:8px; margin:6px 0 20px}
+.tag{font-size:12px; padding:6px 11px; border-radius:100px; border:1px solid var(--hairline); color:var(--ink-soft); font-weight:600}
+.tag.hot{border-color:var(--pulse); color:var(--pulse); background:var(--pulse-soft)}
+.readbtn{display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:15px; background:var(--pulse); color:#fff; border:none; border-radius:13px; font-family:var(--sans); font-size:15px; font-weight:700; cursor:pointer; letter-spacing:.2px; transition:filter .2s,transform .1s}
+.readbtn:hover{filter:brightness(1.06)}
+.readbtn:active{transform:scale(.985)}
+.ai-wrap{margin-top:22px; padding-top:18px; border-top:1px solid var(--hairline)}
+.ai-label{font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--ink-faint); font-weight:700; margin-bottom:11px}
+.ai-row{display:grid; grid-template-columns:1fr 1fr 1fr; gap:9px}
+.ai-btn{display:flex; align-items:center; justify-content:center; gap:7px; padding:11px; background:transparent; border:1px solid var(--hairline); border-radius:11px; color:var(--ink); font-family:var(--sans); font-size:13px; font-weight:600; cursor:pointer; transition:border-color .2s,background .2s}
+.ai-btn:hover{border-color:var(--pulse); background:var(--pulse-soft)}
+.ai-ic{width:20px; height:20px; border-radius:5px; display:grid; place-items:center; font-size:11px; font-weight:800; color:#fff; flex:none}
+
+/* Settings panel */
+.set-back{position:fixed; inset:0; background:rgba(10,10,14,.4); backdrop-filter:blur(2px); opacity:0; pointer-events:none; transition:opacity .3s; z-index:80}
+.set-back.open{opacity:1; pointer-events:auto}
+.set{position:fixed; top:0; right:0; bottom:0; width:min(88vw,360px); z-index:90; background:var(--surface); border-left:1px solid var(--hairline); transform:translateX(100%); transition:transform .34s cubic-bezier(.32,.72,0,1); overflow-y:auto; padding:calc(var(--safe-top) + 22px) 22px calc(40px + var(--safe-bottom))}
+.set.open{transform:translateX(0)}
+.set-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:22px}
+.set-title{font-size:13px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink)}
+.set-grp{margin-bottom:22px}
+.set-lbl{font-size:11px; text-transform:uppercase; letter-spacing:.8px; color:var(--ink-faint); font-weight:700; margin-bottom:8px}
+.set-in{width:100%; background:var(--paper); color:var(--ink); border:1px solid var(--hairline); border-radius:10px; padding:11px 13px; font-family:var(--sans); font-size:14px}
+.set-in:focus{outline:2px solid var(--pulse); outline-offset:-1px}
+.set-note{font-size:11px; color:var(--ink-faint); margin-top:7px; line-height:1.5}
+.set-check{display:flex; align-items:center; gap:9px; font-size:13.5px; color:var(--ink); cursor:pointer; margin-top:4px}
+.set-check input{width:17px; height:17px; accent-color:var(--pulse); cursor:pointer}
+.set-btn{background:transparent; border:1px solid var(--hairline); color:var(--ink); border-radius:10px; padding:10px 15px; font-family:var(--sans); font-size:12.5px; font-weight:600; cursor:pointer; margin-top:9px}
+.set-btn:hover{border-color:var(--pulse); color:var(--pulse)}
+
+.scroll-top{position:fixed; right:18px; bottom:calc(20px + var(--safe-bottom)); width:44px; height:44px; border-radius:50%; background:var(--surface); border:1px solid var(--hairline); color:var(--ink); font-size:18px; cursor:pointer; opacity:0; pointer-events:none; transition:opacity .25s,transform .2s; z-index:35; box-shadow:var(--shadow)}
+.scroll-top.on{opacity:1; pointer-events:auto}
+.scroll-top:active{transform:scale(.92)}
+
+.foot{margin-top:32px; padding-top:18px; border-top:1px solid var(--hairline); font-size:11.5px; color:var(--ink-faint); line-height:1.7; text-align:center}
+.foot b{color:var(--ink-soft); font-weight:700}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+@media (min-width:640px){.hero-title{font-size:32px}}
 </style>
 </head>
 <body>
 
-<!-- Settings Panel -->
-<div class="settings-backdrop" id="settingsBackdrop" onclick="toggleSettings()"></div>
-<div class="settings-panel" id="settingsPanel">
-  <button class="settings-close" onclick="toggleSettings()">✕</button>
-  <div class="settings-title">ТОХИРГОО</div>
+<div class="pull" id="pullIndicator">↓ Шинэчлэхийн тулд доош таталт</div>
 
-  <div class="settings-group">
-    <div class="settings-label">API SERVER URL</div>
-    <input class="settings-input" id="apiUrl" type="url" placeholder="https://ainews-production-9c46.up.railway.app">
-    <div class="settings-note">Анхдагч: ainews-production-9c46.up.railway.app</div>
-  </div>
-
-  <div class="settings-group">
-    <div class="settings-label">АВТОМАТ ШИНЭЧЛЭЛТ (МИНУТ)</div>
-    <input class="settings-input" id="refreshInterval" type="number" min="5" max="1440" value="600">
-    <div class="settings-note">Хамгийн бага: 5 минут</div>
-  </div>
-
-  <div class="settings-group">
-    <div class="settings-label">УНШСАН МЭДЭЭ</div>
-    <label style="display:flex; align-items:center; gap:8px; margin-top:6px; cursor:pointer; font-size:11px; color:var(--text);">
-      <input type="checkbox" id="showReadToggle" style="width:16px; height:16px; accent-color: var(--accent); cursor:pointer;">
-      Уншсан мэдээг харуулах
-    </label>
-    <button class="fetch-btn" style="font-size:11px; padding:8px 16px; margin-top:8px" onclick="resetReadIds()">УНШСАН ТЭМДЭГИЙГ АРИЛГАХ</button>
-    <div class="settings-note" id="readInfo">0 уншсан</div>
-  </div>
-
-  <div class="settings-group">
-    <div class="settings-label">МЭДЭЭНИЙ КЭШ</div>
-    <button class="fetch-btn" style="font-size:11px; padding:8px 16px; margin-top:4px" onclick="clearCache()">КЭШИЙГ ЦЭВЭРЛЭХ</button>
-    <div class="settings-note" id="cacheInfo">Кэш хоосон</div>
-  </div>
-</div>
-
-<div class="container">
-  <div class="pull-indicator" id="pullIndicator">↓ ШИНЭЧЛЭХИЙН ТУЛД ДООШ ТАТНА УУ</div>
-  <div class="offline-banner" id="offlineBanner">⚡ ОФЛАЙН ГОРИМ — Кэшлэсэн мэдээг харуулж байна</div>
-  <div id="errorMsg" class="error-msg"></div>
-
-  <div class="top-bar">
-    <div class="logo">
-      <div class="logo-icon">AI</div>
-      <div>
-        <div class="logo-text">AI PULSE</div>
-      </div>
-    </div>
-    <div class="top-bar-right">
-      <span class="last-updated" id="lastUpdated"></span>
-      <button class="settings-btn" onclick="toggleSettings()">⚙</button>
+<header class="mast">
+  <div class="offline" id="offlineBanner">⚡ Офлайн — хадгалсан мэдээг харуулж байна</div>
+  <div class="mast-in">
+    <span class="wordmark">AI<span class="pulse-dot"></span>PULSE</span>
+    <div class="mast-right">
+      <span class="updated" id="lastUpdated"></span>
+      <button class="icon-btn" id="refreshBtn" title="Шинэчлэх" aria-label="Шинэчлэх">↻</button>
+      <button class="icon-btn" id="themeBtn" title="Гэрэл/бараан" aria-label="Горим солих">◐</button>
+      <button class="icon-btn" id="settingsBtn" title="Тохиргоо" aria-label="Тохиргоо">⚙</button>
     </div>
   </div>
+  <nav class="tabs" id="tabs" role="tablist"></nav>
+</header>
 
-  <div class="source-tabs" id="topicTabs">
-    <button class="source-tab active" data-topic="ai" onclick="setTopic('ai')">AI</button>
-    <button class="source-tab" data-topic="iot" onclick="setTopic('iot')">IoT</button>
-    <button class="source-tab" data-topic="rfid" onclick="setTopic('rfid')">RFID</button>
-    <button class="source-tab" data-topic="dev" onclick="setTopic('dev')">DEV</button>
+<main class="wrap">
+  <div class="filters hidden" id="filterRow"></div>
+  <div class="errbar" id="errorMsg"></div>
+  <div id="view"></div>
+  <div class="foot">
+    <b>Google Translate</b>-ээр монголчилсон · Ollama-аар бүтэцжүүлсэн<br>
+    Эх сурвалж: Hacker News · Dev.to · Lobsters · Google News · HuggingFace
   </div>
+</main>
 
-  <div class="sticky-toolbar" id="stickyToolbar">
-    <div class="controls">
-      <button class="fetch-btn" id="fetchBtn" onclick="fetchNews()">
-        ▶ REFRESH
-      </button>
-      <div class="topic-filters" id="filterRow"></div>
-    </div>
+<div class="sheet-back" id="sheetBack"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+
+<div class="set-back" id="settingsBackdrop"></div>
+<aside class="set" id="settingsPanel">
+  <div class="set-head">
+    <span class="set-title">Тохиргоо</span>
+    <button class="icon-btn" id="setClose" aria-label="Хаах">✕</button>
   </div>
-
-  <div id="newsContainer">
-    <div class="empty-state">
-      <div class="empty-icon">◈</div>
-      <div class="empty-text">Мэдээ татах товчийг дарна уу</div>
-      <div class="empty-sub">// AI PULSE хамгийн сүүлийн мэдээг танд хүргэнэ</div>
-    </div>
+  <div class="set-grp">
+    <div class="set-lbl">API серверийн URL</div>
+    <input class="set-in" id="apiUrl" type="url" placeholder="https://…up.railway.app">
+    <div class="set-note">Хоосон бол энэ сайтын өөрийн хаяг ашиглана.</div>
   </div>
-</div>
-
-<!-- Modal -->
-<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
-  <div class="modal" id="modalContent">
-    <div class="modal-handle"></div>
-    <button class="modal-close" onclick="closeModalBtn()">✕</button>
-    <div id="modalBody"></div>
+  <div class="set-grp">
+    <div class="set-lbl">Автомат шинэчлэлт (минут)</div>
+    <input class="set-in" id="refreshInterval" type="number" min="5" max="1440" value="600">
+    <div class="set-note">Хамгийн бага: 5 минут</div>
   </div>
-</div>
+  <div class="set-grp">
+    <div class="set-lbl">Уншсан мэдээ</div>
+    <label class="set-check"><input type="checkbox" id="showReadToggle"> Уншсан мэдээг харуулах</label>
+    <button class="set-btn" id="resetRead">Уншсан тэмдгийг арилгах</button>
+    <div class="set-note" id="readInfo">0 уншсан</div>
+  </div>
+  <div class="set-grp">
+    <div class="set-lbl">Кэш</div>
+    <button class="set-btn" id="clearCacheBtn">Кэшийг цэвэрлэх</button>
+    <div class="set-note" id="cacheInfo">Кэш хоосон</div>
+  </div>
+</aside>
 
-<!-- Bottom nav (mobile) -->
-<!-- Scroll to top -->
-<button class="scroll-top" id="scrollTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+<button class="scroll-top" id="scrollTopBtn" aria-label="Дээш">↑</button>
 
 <script>
-let allNews = [];
-let allSourceData = { google: [], newsapi: [], gnews: [], iot: [], rfid: [], dev: [] };
-let currentFilter = 'all';
-let isLoading = false;
-let autoRefreshTimer = null;
-let activeTopic = 'ai';
+// ── State ──────────────────────────────────────────────────────
+let allNews=[], allSourceData={}, currentFilter='all', isLoading=false, autoRefreshTimer=null, activeTopic='trending';
+const ALL_SOURCES=['trending','google','newsapi','gnews','edge','iot','rfid','dev'];
+const TOPIC_SOURCES={ trending:['trending'], ai:['google','newsapi','gnews'], edge:['edge'], iot:['iot'], rfid:['rfid'], dev:['dev'] };
+ALL_SOURCES.forEach(s=>allSourceData[s]=[]);
 
-const ALL_SOURCES = ['google', 'newsapi', 'gnews', 'iot', 'rfid', 'dev'];
-
-const TOPIC_SOURCES = {
-  ai:   ['google', 'newsapi', 'gnews'],
-  iot:  ['iot'],
-  rfid: ['rfid'],
-  dev:  ['dev'],
+const TABS=[
+  {key:'trending',label:'Тренд',flame:true},
+  {key:'ai',label:'AI'},
+  {key:'edge',label:'Edge'},
+  {key:'iot',label:'IoT'},
+  {key:'rfid',label:'RFID'},
+  {key:'dev',label:'DEV'},
+];
+const CAT_MN={
+  model:'Загвар',research:'Судалгаа',business:'Бизнес',safety:'Аюулгүй',tools:'Багаж',
+  hardware:'Хардвер',connectivity:'Холболт',industry:'Салбар',security:'Аюулгүй',platform:'Платформ',
+  retail:'Жижиглэн',logistics:'Логистик',healthcare:'Эрүүл мэнд',standard:'Стандарт',
+  agent:'Агент',rag:'RAG',llm:'LLM',vlm:'VLM',tooling:'Хэрэгсэл',skill:'Ур чадвар',
+  inference:'Инференс',vision:'Хараа',privacy:'Нууцлал',tinyml:'TinyML',
+};
+const TOPIC_FILTERS={
+  ai:['all','model','research','business','safety','tools'],
+  edge:['all','inference','hardware','vision','privacy','tinyml'],
+  iot:['all','hardware','connectivity','industry','security','platform'],
+  rfid:['all','hardware','retail','logistics','healthcare','standard'],
+  dev:['all','agent','rag','llm','vlm','tooling','skill'],
 };
 
-const TOPIC_FILTERS = {
-  ai:   [
-    { key: 'all', label: 'ALL' }, { key: 'model', label: 'MODEL' },
-    { key: 'research', label: 'RESEARCH' }, { key: 'business', label: 'BUSINESS' },
-    { key: 'safety', label: 'SAFETY' }, { key: 'tools', label: 'TOOLS' },
-  ],
-  iot:  [
-    { key: 'all', label: 'ALL' }, { key: 'hardware', label: 'HARDWARE' },
-    { key: 'connectivity', label: 'CONNECTIVITY' }, { key: 'industry', label: 'INDUSTRY' },
-    { key: 'security', label: 'SECURITY' }, { key: 'platform', label: 'PLATFORM' },
-  ],
-  rfid: [
-    { key: 'all', label: 'ALL' }, { key: 'hardware', label: 'HARDWARE' },
-    { key: 'retail', label: 'RETAIL' }, { key: 'logistics', label: 'LOGISTICS' },
-    { key: 'healthcare', label: 'HEALTHCARE' }, { key: 'standard', label: 'STANDARD' },
-  ],
-  dev:  [
-    { key: 'all', label: 'ALL' }, { key: 'agent', label: 'AGENT' },
-    { key: 'rag', label: 'RAG' }, { key: 'llm', label: 'LLM' },
-    { key: 'vlm', label: 'VLM' }, { key: 'tooling', label: 'TOOLING' },
-    { key: 'skill', label: 'SKILL' },
-  ],
-};
+// ── localStorage keys ──────────────────────────────────────────
+const CACHE_KEY='ai-pulse-all-news', CACHE_TIME_KEY='ai-pulse-all-news-time';
+const API_URL_KEY='ai-pulse-api-url', REFRESH_KEY='ai-pulse-refresh';
+const READ_IDS_KEY='ai-pulse-read-ids', SHOW_READ_KEY='ai-pulse-show-read', THEME_KEY='ai-pulse-theme';
 
-function mergeAllSources() {
-  const seen = new Set();
-  const merged = [];
-  let uid = 1;
-  for (const src of (TOPIC_SOURCES[activeTopic] || [])) {
-    for (const item of (allSourceData[src] || [])) {
-      const key = (item.title || '').toLowerCase().replace(/[^a-z0-9\u0400-\u04ff]/g, '').slice(0, 50);
-      if (!seen.has(key)) {
-        seen.add(key);
-        merged.push({ ...item, id: uid++ });
-      }
+// ── Read tracking ──────────────────────────────────────────────
+let readIds=new Set(), showRead=true;
+try{ const r=localStorage.getItem(READ_IDS_KEY); if(r) readIds=new Set(JSON.parse(r));
+  const s=localStorage.getItem(SHOW_READ_KEY); if(s!==null) showRead=s==='1'; }catch(e){}
+function articleHash(i){ const b=((i.title||'')+'|'+(i.url||'')).toLowerCase(); let h=0; for(let k=0;k<b.length;k++)h=((h<<5)-h+b.charCodeAt(k))|0; return String(h); }
+const isRead=i=>readIds.has(articleHash(i));
+function markRead(i){ readIds.add(articleHash(i)); if(readIds.size>500)readIds=new Set([...readIds].slice(-500)); try{localStorage.setItem(READ_IDS_KEY,JSON.stringify([...readIds]))}catch(e){} updateReadInfo(); }
+function updateReadInfo(){ const el=document.getElementById('readInfo'); if(el)el.textContent=readIds.size+' уншсан'; }
+
+// ── Helpers ────────────────────────────────────────────────────
+function esc(s){ const d=document.createElement('div'); d.textContent=s==null?'':s; return d.innerHTML; }
+function cleanCat(c){ if(!c)return 'tools'; const f=String(c).split('|')[0].trim().toLowerCase(); return CAT_MN[f]?f:'tools'; }
+function catLabel(c){ const k=cleanCat(c); return (CAT_MN[k]||k).toUpperCase(); }
+function getApiUrl(){ return localStorage.getItem(API_URL_KEY)||window.location.origin; }
+function getRefreshInterval(){ return parseInt(localStorage.getItem(REFRESH_KEY)||'600',10); }
+function band(seed,cls){ seed=seed||'A'; const a=(seed.charCodeAt(0)*37)%80+10, b=(seed.charCodeAt(seed.length-1)*23)%80+10;
+  return '<div class="'+cls+'" style="background:radial-gradient(120% 120% at '+a+'% '+b+'%,var(--pulse-soft),transparent 55%),var(--surface)"><div class="tex"></div><div class="mono">'+esc(seed[0].toUpperCase())+'</div></div>'; }
+function metaLine(i){ const hot=(Number(i.importance)||0)>=8?'<span class="d"></span><span class="hot">◆ Онцлох</span>':'';
+  return '<div class="meta"><span class="src">'+esc(i.source)+'</span><span class="d"></span><span>'+esc(i.timeAgo||'')+'</span>'+hot+'</div>'; }
+
+// ── Merge active topic sources → allNews ───────────────────────
+function mergeAllSources(){
+  const seen=new Set(), merged=[]; let uid=1;
+  for(const src of (TOPIC_SOURCES[activeTopic]||[]))
+    for(const item of (allSourceData[src]||[])){
+      const key=(item.title||'').toLowerCase().replace(/[^a-z0-9Ѐ-ӿ]/g,'').slice(0,50);
+      if(!seen.has(key)){ seen.add(key); merged.push({...item,id:uid++}); }
     }
-  }
   return merged;
 }
 
-function renderFilters(topic) {
-  const row = document.getElementById('filterRow');
-  row.innerHTML = TOPIC_FILTERS[topic].map(f =>
-    `<button class="filter-tag${f.key === 'all' ? ' active' : ''}" data-topic="${f.key}" onclick="setFilter(this, '${f.key}')">${f.label}</button>`
-  ).join('');
-  currentFilter = 'all';
+// ── Theme ──────────────────────────────────────────────────────
+function applyTheme(t){
+  if(t) document.documentElement.setAttribute('data-theme',t); else document.documentElement.removeAttribute('data-theme');
+  const dark = t==='dark' || (!t && matchMedia('(prefers-color-scheme:dark)').matches);
+  document.getElementById('themeColorMeta').setAttribute('content', dark?'#0D0E12':'#F3F3F0');
 }
-
-function setTopic(topic) {
-  activeTopic = topic;
-  document.querySelectorAll('#topicTabs .source-tab').forEach(t => t.classList.remove('active'));
-  document.querySelector(`#topicTabs .source-tab[data-topic="${topic}"]`).classList.add('active');
-  renderFilters(topic);
-  allNews = mergeAllSources();
-  if (allNews.length) {
-    renderNews(allNews);
-  } else {
-    document.getElementById('newsContainer').innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">◈</div>
-        <div class="empty-text">Press REFRESH to load ${topic.toUpperCase()} news</div>
-        <div class="empty-sub">// AI PULSE — ${topic.toUpperCase()} sources ready</div>
-      </div>
-    `;
-  }
-}
-
-function esc(str) {
-  const d = document.createElement('div');
-  d.textContent = str;
-  return d.innerHTML;
-}
-
-const CACHE_KEY = 'ai-pulse-all-news';
-const CACHE_TIME_KEY = 'ai-pulse-all-news-time';
-const API_URL_KEY = 'ai-pulse-api-url';
-const REFRESH_KEY = 'ai-pulse-refresh';
-
-const CATEGORY_COLORS = {
-  'model': 'cat-model', 'research': 'cat-research', 'business': 'cat-business',
-  'safety': 'cat-safety', 'tools': 'cat-tools',
-  'hardware': 'cat-model', 'connectivity': 'cat-research', 'industry': 'cat-business',
-  'security': 'cat-safety', 'platform': 'cat-tools',
-  'retail': 'cat-model', 'logistics': 'cat-research', 'healthcare': 'cat-business',
-  'standard': 'cat-safety',
-  'agent': 'cat-model', 'rag': 'cat-research', 'llm': 'cat-business',
-  'vlm': 'cat-safety', 'tooling': 'cat-tools', 'skill': 'cat-skill',
+applyTheme(localStorage.getItem(THEME_KEY)||null);
+document.getElementById('themeBtn').onclick=()=>{
+  const cur=document.documentElement.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+  const next=cur==='dark'?'light':'dark';
+  localStorage.setItem(THEME_KEY,next); applyTheme(next);
 };
 
-const CATEGORY_LABELS = {
-  'model': 'MODEL', 'research': 'RESEARCH', 'business': 'BUSINESS',
-  'safety': 'SAFETY', 'tools': 'TOOLS',
-  'hardware': 'HARDWARE', 'connectivity': 'CONNECTIVITY', 'industry': 'INDUSTRY',
-  'security': 'SECURITY', 'platform': 'PLATFORM',
-  'retail': 'RETAIL', 'logistics': 'LOGISTICS', 'healthcare': 'HEALTHCARE',
-  'standard': 'STANDARD',
-  'agent': 'AGENT', 'rag': 'RAG', 'llm': 'LLM',
-  'vlm': 'VLM', 'tooling': 'TOOLING', 'skill': 'SKILL',
-};
-
-// ── Read-tracking (localStorage) ────────────────────────────────
-const READ_IDS_KEY = 'ai-pulse-read-ids';
-const SHOW_READ_KEY = 'ai-pulse-show-read';
-let readIds = new Set();
-// Default: show everything (read just fades). User can opt-in to hide.
-let showRead = true;
-try {
-  const raw = localStorage.getItem(READ_IDS_KEY);
-  if (raw) readIds = new Set(JSON.parse(raw));
-  const stored = localStorage.getItem(SHOW_READ_KEY);
-  if (stored !== null) showRead = stored === '1';
-} catch (e) {}
-
-function updateReadInfo() {
-  const el = document.getElementById('readInfo');
-  if (el) el.textContent = `${readIds.size} уншсан`;
-}
-
-function resetReadIds() {
-  readIds = new Set();
-  try { localStorage.removeItem(READ_IDS_KEY); } catch (e) {}
-  updateReadInfo();
-  if (allNews.length) renderNews(allNews);
-}
-
-function articleHash(item) {
-  // Stable across server restarts: based on title + url, not session id
-  const base = ((item.title || '') + '|' + (item.url || '')).toLowerCase();
-  let h = 0;
-  for (let i = 0; i < base.length; i++) h = ((h << 5) - h + base.charCodeAt(i)) | 0;
-  return String(h);
-}
-
-function isRead(item) { return readIds.has(articleHash(item)); }
-
-function markRead(item) {
-  readIds.add(articleHash(item));
-  // Cap at 500 to avoid unbounded growth (FIFO)
-  if (readIds.size > 500) {
-    readIds = new Set(Array.from(readIds).slice(-500));
-  }
-  try { localStorage.setItem(READ_IDS_KEY, JSON.stringify(Array.from(readIds))); } catch (e) {}
-  updateReadInfo();
-}
-
-function getFaviconUrl(urlOrSource) {
-  try {
-    if (urlOrSource && urlOrSource.startsWith('http')) {
-      const domain = new URL(urlOrSource).hostname;
-      return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
-    }
-  } catch(e) {}
-  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(urlOrSource)}&sz=32`;
-}
-
-function cleanCategory(cat) {
-  if (!cat) return 'tools';
-  const first = cat.split('|')[0].trim().toLowerCase();
-  return CATEGORY_COLORS[first] ? first : 'tools';
-}
-
-// Load settings
-const DEFAULT_API_URL = window.location.origin;
-
-function getApiUrl() {
-  return localStorage.getItem(API_URL_KEY) || DEFAULT_API_URL;
-}
-
-function getRefreshInterval() {
-  return parseInt(localStorage.getItem(REFRESH_KEY) || '600', 10);
-}
-
-function init() {
-  // Restore settings
-  document.getElementById('apiUrl').value = getApiUrl();
-  document.getElementById('refreshInterval').value = getRefreshInterval();
-  renderFilters('ai');
-
-  // Load cached news (all sources)
-  const cached = localStorage.getItem(CACHE_KEY);
-  if (cached) {
-    try {
-      allSourceData = JSON.parse(cached);
-      allNews = mergeAllSources();
-      renderNews(allNews);
-      updateStats(true);
-    } catch (e) { /* ignore */ }
-  }
-
-  // Save settings on change
-  document.getElementById('apiUrl').addEventListener('change', function() {
-    localStorage.setItem(API_URL_KEY, this.value.trim());
-  });
-
-  document.getElementById('refreshInterval').addEventListener('change', function() {
-    const val = Math.max(5, Math.min(1440, parseInt(this.value) || 600));
-    this.value = val;
-    localStorage.setItem(REFRESH_KEY, val);
-    setupAutoRefresh();
-  });
-
-  // Show-read toggle
-  const showReadEl = document.getElementById('showReadToggle');
-  showReadEl.checked = showRead;
-  showReadEl.addEventListener('change', function() {
-    showRead = this.checked;
-    try { localStorage.setItem(SHOW_READ_KEY, showRead ? '1' : '0'); } catch (e) {}
-    if (allNews.length) renderNews(allNews);
-  });
-  updateReadInfo();
-
-  updateCacheInfo();
-  updateLastUpdated();
-  setupAutoRefresh();
-  setupPullToRefresh();
-  setupOnlineStatus();
-  setupScrollHandlers();
-
-  // Register service worker + setup push
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js')
-      .then(() => setupPushNotifications())
-      .catch(() => {});
-  }
-
-  // Load from server cache (no re-fetching, just returns what server has)
-  if (navigator.onLine) {
-    loadFromServerCache();
-  }
-}
-
-async function loadFromServerCache() {
-  const apiUrl = getApiUrl();
-  if (!apiUrl) return;
-
-  try {
-    const response = await fetch(`${apiUrl}/api/news/cached`);
-    const data = await response.json();
-
-    let hasNews = false;
-    for (const src of ALL_SOURCES) {
-      if (data[src] && data[src].news && data[src].news.length > 0) {
-        allSourceData[src] = data[src].news;
-        hasNews = true;
-      }
-    }
-
-    if (hasNews) {
-      localStorage.setItem(CACHE_KEY, JSON.stringify(allSourceData));
-      localStorage.setItem(CACHE_TIME_KEY, new Date().toISOString());
-      allNews = mergeAllSources();
-      renderNews(allNews);
-      updateStats(true);
-      updateCacheInfo();
-      updateLastUpdated();
-    } else {
-      // Server cache empty (cold start / restart) — trigger a live fetch
-      // so the user sees news without having to press REFRESH manually.
-      const hasLocalCache = Object.values(allSourceData).some(arr => arr.length > 0);
-      if (!hasLocalCache && navigator.onLine) {
-        fetchNews();
-      }
-    }
-  } catch (e) {
-    // Server unreachable — localStorage cache already shown from init
-  }
-}
-
-function setupAutoRefresh() {
-  if (autoRefreshTimer) clearInterval(autoRefreshTimer);
-  const mins = getRefreshInterval();
-  autoRefreshTimer = setInterval(() => {
-    const hasAnyData = Object.values(allSourceData).some(arr => arr.length > 0);
-    if (!isLoading && hasAnyData && navigator.onLine) fetchNews();
-  }, mins * 60 * 1000);
-}
-
-function setupOnlineStatus() {
-  const banner = document.getElementById('offlineBanner');
-  const update = () => {
-    if (!navigator.onLine) {
-      banner.classList.add('visible');
-    } else {
-      banner.classList.remove('visible');
-    }
-  };
-  window.addEventListener('online', update);
-  window.addEventListener('offline', update);
-  update();
-}
-
-// Pull-to-refresh for mobile
-function setupPullToRefresh() {
-  let startY = 0;
-  let pulling = false;
-  const indicator = document.getElementById('pullIndicator');
-
-  document.addEventListener('touchstart', (e) => {
-    if (window.scrollY === 0 && !isLoading) {
-      startY = e.touches[0].clientY;
-      pulling = true;
-    }
-  }, { passive: true });
-
-  document.addEventListener('touchmove', (e) => {
-    if (!pulling) return;
-    const dy = e.touches[0].clientY - startY;
-    if (dy > 60) {
-      indicator.classList.add('visible');
-      indicator.textContent = '↑ СУЛЛАНА УУ';
-    } else if (dy > 20) {
-      indicator.classList.add('visible');
-      indicator.textContent = '↓ ШИНЭЧЛЭХИЙН ТУЛД ДООШ ТАТНА УУ';
-    }
-  }, { passive: true });
-
-  document.addEventListener('touchend', () => {
-    if (!pulling) return;
-    pulling = false;
-    if (indicator.classList.contains('visible') && indicator.textContent.includes('СУЛЛАНА')) {
-      fetchNews();
-    }
-    indicator.classList.remove('visible');
-  }, { passive: true });
-}
-
-async function fetchNews() {
-  if (isLoading) return;
-
-  const apiUrl = getApiUrl();
-  if (!apiUrl) {
-    document.getElementById('errorMsg').textContent = '⚠ ТОХИРГОО: API серверийн URL оруулна уу';
-    document.getElementById('errorMsg').classList.add('visible');
-    toggleSettings();
-    return;
-  }
-
-  isLoading = true;
-  const btn = document.getElementById('fetchBtn');
-  const errorMsg = document.getElementById('errorMsg');
-
-  btn.disabled = true;
-  btn.textContent = '⟳ ТАТАЖ БАЙНА...';
-  errorMsg.classList.remove('visible');
-
-  document.getElementById('newsContainer').innerHTML = `
-    <div class="loading">
-      <div class="loading-text">// FETCHING ALL NEWS — AI · IoT · RFID · DEV</div>
-      <svg class="pulse-wave" viewBox="0 0 240 50">
-        <path class="pulse-line" d="M0,25 L50,25 L70,25 L82,6 L95,44 L108,16 L116,34 L124,25 L170,25 L240,25" />
-        <circle class="pulse-dot" cx="95" cy="25" r="3" />
-      </svg>
-      <div class="loading-text" style="opacity:0.5">AI PULSE — PROCESSING ALL SOURCES...</div>
-    </div>
-  `;
-
-  try {
-    const response = await fetch(`${apiUrl}/api/news/all`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    const data = await response.json();
-    if (data.error) throw new Error(data.error);
-
-    // Collect errors from individual sources
-    const errors = [];
-    for (const src of ALL_SOURCES) {
-      if (data[src]) {
-        allSourceData[src] = data[src].news || [];
-        if (data[src].error) errors.push(`${src}: ${data[src].error}`);
-      }
-    }
-
-    // Show partial errors if any
-    if (errors.length > 0 && errors.length < 3) {
-      errorMsg.textContent = `⚠ Зарим эх сурвалжаас алдаа: ${errors.join('; ')}`;
-      errorMsg.classList.add('visible');
-    }
-
-    // Save all sources to localStorage
-    localStorage.setItem(CACHE_KEY, JSON.stringify(allSourceData));
-    localStorage.setItem(CACHE_TIME_KEY, new Date().toISOString());
-
-    allNews = mergeAllSources();
-    renderNews(allNews);
-    updateStats(false);
-    updateCacheInfo();
-    updateLastUpdated();
-
-  } catch (err) {
-    console.error(err);
-    errorMsg.textContent = `⚠ АЛДАА: ${err.message}`;
-    errorMsg.classList.add('visible');
-
-    // Fall back to cache
-    const cached = localStorage.getItem(CACHE_KEY);
-    if (cached) {
-      allSourceData = JSON.parse(cached);
-      allNews = mergeAllSources();
-      renderNews(allNews);
-      updateStats(true);
-    } else {
-      document.getElementById('newsContainer').innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">⚠</div>
-          <div class="empty-text">Мэдээ татахад алдаа гарлаа</div>
-          <div class="empty-sub">// Дахин оролдоно уу</div>
-        </div>
-      `;
-    }
-  }
-
-  btn.disabled = false;
-  btn.textContent = '▶ REFRESH';
-  isLoading = false;
-}
-
-function renderNews(news) {
-  let filtered = currentFilter === 'all' ? news : news.filter(n => cleanCategory(n.category) === currentFilter);
-  if (!showRead) filtered = filtered.filter(n => !isRead(n));
-
-  if (!filtered.length) {
-    const allReadButHidden = !showRead && news.some(n => isRead(n));
-    document.getElementById('newsContainer').innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">◈</div>
-        <div class="empty-text">${allReadButHidden ? 'Шинэ мэдээ алга — бүгдийг уншсан байна' : 'Энэ ангиллаар мэдээ олдсонгүй'}</div>
-        ${allReadButHidden ? '<div class="empty-sub">// Тохиргооноос "Уншсаныг харуулах"-ыг нээгээрэй</div>' : ''}
-      </div>
-    `;
-    return;
-  }
-
-  const sorted = [...filtered].sort((a, b) => b.importance - a.importance);
-
-  const html = sorted.map((item, i) => {
-    const cat = cleanCategory(item.category);
-    const catClass = CATEGORY_COLORS[cat];
-    const catLabel = CATEGORY_LABELS[cat];
-    const delay = i * 0.06;
-    const imp = Math.min(10, Math.max(0, Number(item.importance) || 0));
-    const faviconUrl = getFaviconUrl(item.url || item.source);
-
-    // Build importance dots
-    let dots = '';
-    for (let d = 1; d <= 10; d++) {
-      const filled = d <= imp;
-      const high = imp >= 8 && filled;
-      dots += `<div class="importance-dot${filled ? ' filled' : ''}${high ? ' high' : ''}"></div>`;
-    }
-
-    const readClass = isRead(item) ? ' read' : '';
-
-    return `
-      <div class="news-card ${item.featured ? 'featured' : ''}${readClass}"
-           style="animation-delay: ${delay}s"
-           onclick="openModal(${Number(item.id)})">
-        <div class="card-meta">
-          <span class="card-category ${catClass}">${catLabel}</span>
-          <span class="card-time">${esc(item.timeAgo)}</span>
-        </div>
-        <div class="card-title">${esc(item.title)}</div>
-        <div class="card-summary">${esc(item.summary)}</div>
-        <div class="card-footer">
-          <div class="card-source">
-            <img class="source-favicon" src="${faviconUrl}" alt="" onerror="this.style.display='none'">
-            ${esc(item.source)}
-          </div>
-          <div class="card-importance-bar">
-            <div class="importance-dots">${dots}</div>
-          </div>
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  document.getElementById('newsContainer').innerHTML = `<div class="news-grid">${html}</div>`;
-}
-
-function updateStats(fromCache) {
-  updateTabCounts();
-  updateLastUpdated();
-}
-
-
-function setFilter(el, topic) {
-  document.querySelectorAll('.filter-tag').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
-  currentFilter = topic;
-  if (allNews.length) renderNews(allNews);
-}
-
-function openModal(id) {
-  const item = allNews.find(n => Number(n.id) === Number(id));
-  if (!item) return;
-  markRead(item);
-  const cat = cleanCategory(item.category);
-  const catClass = CATEGORY_COLORS[cat];
-  const catLabel = CATEGORY_LABELS[cat];
-  const safeId = Number(item.id);
-
-  const imp = Number(item.importance) || 0;
-  const faviconUrl = getFaviconUrl(item.url || item.source);
-
-  document.getElementById('modalBody').innerHTML = `
-    <div class="modal-header-meta">
-      <span class="card-category ${catClass}">${catLabel}</span>
-      <span class="modal-time">${esc(item.timeAgo)}</span>
-    </div>
-    <div class="modal-title">${esc(item.title)}</div>
-    <div class="modal-detail">${esc(item.detail)}</div>
-    <div class="modal-info-tags">
-      <span class="modal-tag modal-tag-source">
-        <img src="${faviconUrl}" alt="" style="width:14px;height:14px;border-radius:3px" onerror="this.style.display='none'">
-        ${esc(item.source)}
-      </span>
-      <span class="modal-tag ${imp >= 8 ? 'modal-tag-importance high' : 'modal-tag-importance'}">
-        ${imp >= 8 ? '&#9733;' : '&#9670;'} ${imp}/10
-      </span>
-    </div>
-    <div class="modal-actions">
-      <button class="source-btn" onclick="openSource(${safeId})">&#8599; ЭХ МЭДЭЭГ УНШИХ</button>
-      <div class="ai-buttons">
-        <div class="ai-buttons-label">AI-тай дэлгэрүүлж ярилцах</div>
-        <div class="ai-buttons-row">
-          <button class="ai-btn ai-btn-claude" onclick="openAI('claude', ${safeId})">
-            <div class="ai-btn-icon">C</div>
-            <span>Claude</span>
-          </button>
-          <button class="ai-btn ai-btn-chatgpt" onclick="openAI('chatgpt', ${safeId})">
-            <div class="ai-btn-icon">G</div>
-            <span>ChatGPT</span>
-          </button>
-          <button class="ai-btn ai-btn-gemini" onclick="openAI('gemini', ${safeId})">
-            <div class="ai-btn-icon">G</div>
-            <span>Gemini</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
-  document.getElementById('modalOverlay').classList.add('open');
-  document.body.style.overflow = 'hidden';
-
-  // Show scroll hint if content overflows
-  requestAnimationFrame(() => {
-    const modal = document.getElementById('modalContent');
-    if (modal.scrollHeight > modal.clientHeight) {
-      const hint = document.createElement('div');
-      hint.className = 'modal-scroll-hint';
-      hint.textContent = '↓ ДООШ ГҮЙЛГЭНЭ ҮҮ';
-      document.getElementById('modalBody').appendChild(hint);
-      modal.addEventListener('scroll', function onScroll() {
-        if (modal.scrollTop > 20) { hint.remove(); modal.removeEventListener('scroll', onScroll); }
-      });
-    }
-  });
-}
-
-function openSource(id) {
-  const item = allNews.find(n => Number(n.id) === Number(id));
-  if (!item) return;
-  if (item.url) {
-    window.open(item.url, '_blank');
-  } else {
-    const query = encodeURIComponent(`${item.title} ${item.source}`);
-    window.open(`https://www.google.com/search?q=${query}`, '_blank');
-  }
-}
-
-function openAI(platform, id) {
-  const item = allNews.find(n => Number(n.id) === Number(id));
-  if (!item) return;
-
-  const prompt = `Энэ AI мэдээний талаар дэлгэрүүлж ярилцъя:\n\n"${item.title}"\n\n${item.detail}\n\nЭх сурвалж: ${item.source}`;
-  const encoded = encodeURIComponent(prompt);
-
-  const urls = {
-    claude: `https://claude.ai/new?q=${encoded}`,
-    chatgpt: `https://chat.openai.com/?q=${encoded}`,
-    gemini: `https://aistudio.google.com/prompts/new_chat?q=${encoded}`,
-  };
-
-  window.open(urls[platform], '_blank');
-}
-
-function closeModal(e) {
-  if (e.target === document.getElementById('modalOverlay')) {
-    document.getElementById('modalOverlay').classList.remove('open');
-    document.body.style.overflow = '';
-  }
-}
-
-function closeModalBtn() {
-  document.getElementById('modalOverlay').classList.remove('open');
-  document.body.style.overflow = '';
-}
-
-function toggleSettings() {
-  const panel = document.getElementById('settingsPanel');
-  const backdrop = document.getElementById('settingsBackdrop');
-  const isOpen = panel.classList.contains('open');
-  panel.classList.toggle('open');
-  backdrop.classList.toggle('open');
-  if (isOpen) updateCacheInfo();
-}
-
-function clearCache() {
-  localStorage.removeItem(CACHE_KEY);
-  localStorage.removeItem(CACHE_TIME_KEY);
-  // Also remove old per-tab cache keys
-  ['google','newsapi','gnews'].forEach(t => {
-    localStorage.removeItem(`ai-pulse-news-${t}`);
-    localStorage.removeItem(`ai-pulse-news-time-${t}`);
-  });
-  updateCacheInfo();
-  allNews = [];
-  allSourceData = { google: [], newsapi: [], gnews: [], iot: [], rfid: [], dev: [] };
-  document.getElementById('newsContainer').innerHTML = `
-    <div class="empty-state">
-      <div class="empty-icon">◈</div>
-      <div class="empty-text">Кэш цэвэрлэгдсэн</div>
-      <div class="empty-sub">// Мэдээ дахин татна уу</div>
-    </div>
-  `;
-}
-
-function updateCacheInfo() {
-  const cached = localStorage.getItem(CACHE_KEY);
-  const time = localStorage.getItem(CACHE_TIME_KEY);
-  const info = document.getElementById('cacheInfo');
-  if (cached && time) {
-    const data = JSON.parse(cached);
-    const total = ALL_SOURCES.reduce((s,k) => s + (data[k]?.length || 0), 0);
-    const d = new Date(time);
-    info.textContent = `${total} мэдээ (${ALL_SOURCES.length} эх) • ${d.toLocaleDateString('mn-MN')} ${d.toLocaleTimeString('mn-MN', {hour:'2-digit', minute:'2-digit'})}`;
-  } else {
-    info.textContent = 'Кэш хоосон';
-  }
-}
-
-function updateTabCounts() {}
-
-function updateLastUpdated() {
-  const time = localStorage.getItem(CACHE_TIME_KEY);
-  const el = document.getElementById('lastUpdated');
-  if (time && el) {
-    const d = new Date(time);
-    const diffMin = Math.floor((Date.now() - d.getTime()) / 60000);
-    let label;
-    if (diffMin < 1) label = 'дөнгөж сая';
-    else if (diffMin < 60) label = `${diffMin} мин өмнө`;
-    else if (diffMin < 60 * 24) label = `${Math.floor(diffMin / 60)} цаг өмнө`;
-    else label = `${Math.floor(diffMin / (60 * 24))} өдөр өмнө`;
-    el.textContent = label;
-    el.title = d.toLocaleString('mn-MN');
-  }
-}
-
-// Refresh the "last updated" badge every minute so users see it tick
-setInterval(updateLastUpdated, 60_000);
-
-// Scroll-to-top visibility
-function setupScrollHandlers() {
-  const scrollBtn = document.getElementById('scrollTopBtn');
-  const toolbar = document.getElementById('stickyToolbar');
-  let lastScroll = 0;
-
-  window.addEventListener('scroll', () => {
-    const y = window.scrollY;
-    // Scroll to top button
-    if (y > 400) {
-      scrollBtn.classList.add('visible');
-    } else {
-      scrollBtn.classList.remove('visible');
-    }
-    // Sticky toolbar shadow
-    if (toolbar) {
-      if (y > 60) {
-        toolbar.classList.add('scrolled');
-      } else {
-        toolbar.classList.remove('scrolled');
-      }
-    }
-    lastScroll = y;
-  }, { passive: true });
-}
-
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    document.getElementById('modalOverlay').classList.remove('open');
-    document.body.style.overflow = '';
-    const panel = document.getElementById('settingsPanel');
-    if (panel.classList.contains('open')) toggleSettings();
-  }
+// ── Tabs ───────────────────────────────────────────────────────
+const tabsEl=document.getElementById('tabs');
+TABS.forEach(t=>{
+  const b=document.createElement('button');
+  b.className='tab'; b.setAttribute('role','tab'); b.dataset.key=t.key;
+  b.setAttribute('aria-selected', t.key===activeTopic);
+  b.innerHTML=(t.flame?'<span class="flame"></span>':'')+t.label;
+  b.onclick=()=>setTopic(t.key);
+  tabsEl.appendChild(b);
 });
-
-// Swipe down to close modal on mobile
-let modalTouchStart = 0;
-let modalScrollAtStart = 0;
-const modalEl = document.getElementById('modalContent');
-modalEl.addEventListener('touchstart', (e) => {
-  modalTouchStart = e.touches[0].clientY;
-  modalScrollAtStart = modalEl.scrollTop;
-}, { passive: true });
-
-modalEl.addEventListener('touchend', (e) => {
-  const dy = e.changedTouches[0].clientY - modalTouchStart;
-  if (dy > 80 && modalScrollAtStart <= 0) {
-    document.getElementById('modalOverlay').classList.remove('open');
-    document.body.style.overflow = '';
-  }
-}, { passive: true });
-
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = atob(base64);
-  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+function setTopic(topic){
+  activeTopic=topic; currentFilter='all';
+  [...tabsEl.children].forEach(c=>c.setAttribute('aria-selected', c.dataset.key===topic));
+  renderFilters(topic);
+  allNews=mergeAllSources();
+  renderNews();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function renderFilters(topic){
+  const row=document.getElementById('filterRow');
+  const defs=TOPIC_FILTERS[topic];
+  if(!defs){ row.classList.add('hidden'); row.innerHTML=''; return; }
+  row.classList.remove('hidden');
+  row.innerHTML=defs.map(k=>'<button class="chip'+(k==='all'?' active':'')+'" data-k="'+k+'">'+(k==='all'?'Бүгд':(CAT_MN[k]||k))+'</button>').join('');
+  row.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{
+    currentFilter=c.dataset.k;
+    row.querySelectorAll('.chip').forEach(x=>x.classList.toggle('active',x===c));
+    renderNews();
+  });
 }
 
-async function setupPushNotifications() {
-  if (!('PushManager' in window) || !('Notification' in window)) return;
-  try {
-    const apiUrl = getApiUrl();
-    const keyRes = await fetch(`${apiUrl}/api/vapid-public-key`);
-    const { publicKey } = await keyRes.json();
-
-    const registration = await navigator.serviceWorker.ready;
-    let subscription = await registration.pushManager.getSubscription();
-
-    if (!subscription) {
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') return;
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
-      });
-    }
-
-    // Register subscription with server (in case server restarted)
-    fetch(`${apiUrl}/api/subscribe`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(subscription),
-    }).catch(() => {});
-  } catch (e) {
-    console.error('Push setup error:', e);
+// ── Render ─────────────────────────────────────────────────────
+function emptyView(tx,sub,retry){
+  document.getElementById('view').innerHTML='<div class="empty"><div class="ic">◈</div><div class="tx">'+tx+'</div>'+(sub?'<div class="sub">'+sub+'</div>':'')+(retry?'<button class="retry" onclick="fetchNews()">Дахин татах</button>':'')+'</div>';
+}
+function skeleton(){
+  let s=''; for(let i=0;i<5;i++)s+='<div class="skel"><div><div class="sk t"></div><div class="sk h"></div><div class="sk h2"></div><div class="sk m"></div></div><div class="sk tb"></div></div>';
+  document.getElementById('view').innerHTML=s;
+}
+function renderNews(){
+  let list = currentFilter==='all' ? allNews : allNews.filter(n=>cleanCat(n.category)===currentFilter);
+  if(!showRead) list=list.filter(n=>!isRead(n));
+  const v=document.getElementById('view');
+  if(!list.length){
+    const allHidden=!showRead && allNews.some(isRead);
+    emptyView(allHidden?'Бүгдийг уншсан байна':(allNews.length?'Энэ ангиллаар мэдээ алга':'Мэдээ хараахан алга'),
+      allHidden?'Тохиргооноос «Уншсан мэдээг харуулах»-ыг асаа':(allNews.length?'':'↻ товчоор татаж үзнэ үү'), !allNews.length);
+    return;
   }
+  if(activeTopic==='trending'){
+    v.innerHTML='<div class="eyebrow"><span class="fl"></span> Хөгжүүлэгчдийн дунд өнөөдөр тренд<span class="line"></span></div>'+
+      list.map((i,idx)=>'<div class="trend-row item '+(isRead(i)?'read':'')+'" data-id="'+i.id+'"><div class="rank">'+(idx+1)+'</div><div><div class="item-kicker">'+esc(i.source)+' · '+catLabel(i.category)+'</div><div class="item-title">'+esc(i.title)+'</div><div class="item-dek">'+esc(i.summary)+'</div>'+metaLine(i)+'</div>'+band(i.source,'thumb')+'</div>').join('');
+  }else{
+    const sorted=[...list].sort((a,b)=>(Number(b.importance)||0)-(Number(a.importance)||0));
+    let hero=null, rest=sorted;
+    if(currentFilter==='all'){ hero=sorted.find(n=>n.featured)||sorted[0]; rest=sorted.filter(n=>n!==hero); }
+    let html='';
+    if(hero) html+='<article class="hero '+(isRead(hero)?'read':'')+'" data-id="'+hero.id+'">'+band(hero.source,'band')+'<div class="kicker">'+catLabel(hero.category)+'</div><h1 class="hero-title">'+esc(hero.title)+'</h1><p class="hero-dek">'+esc(hero.summary)+'</p>'+metaLine(hero)+'</article>';
+    html+='<div class="eyebrow">'+(hero?'Сүүлийн мэдээ':'Мэдээ')+'<span class="line"></span></div><div class="feed">';
+    html+=rest.map(i=>'<div class="item '+(isRead(i)?'read':'')+'" data-id="'+i.id+'"><div><div class="item-kicker">'+catLabel(i.category)+'</div><div class="item-title">'+esc(i.title)+'</div><div class="item-dek">'+esc(i.summary)+'</div>'+metaLine(i)+'</div>'+band(i.source,'thumb')+'</div>').join('');
+    html+='</div>';
+    v.innerHTML=html;
+  }
+  v.querySelectorAll('[data-id]').forEach(el=>el.onclick=()=>openSheet(+el.dataset.id));
 }
 
-// Init
+// ── Reading sheet ──────────────────────────────────────────────
+const sheet=document.getElementById('sheet'), sheetBack=document.getElementById('sheetBack');
+let sheetItem=null;
+function openSheet(id){
+  const i=allNews.find(n=>Number(n.id)===Number(id)); if(!i)return;
+  sheetItem=i; markRead(i);
+  const imp=Number(i.importance)||0;
+  const kicker=activeTopic==='trending' ? esc(i.source)+' · '+catLabel(i.category) : catLabel(i.category);
+  sheet.innerHTML='<div class="grip"></div>'+band(i.source,'sheet-band')+
+    '<div class="kicker">'+kicker+'</div><h1 class="sheet-title">'+esc(i.title)+'</h1>'+metaLine(i)+
+    '<div class="sheet-detail">'+esc(i.detail||i.summary)+'</div>'+
+    '<div class="tags"><span class="tag">'+esc(i.source)+'</span><span class="tag">'+esc(i.timeAgo||'')+'</span>'+
+      (imp>=8?'<span class="tag hot">◆ Чухал '+imp+'/10</span>':'<span class="tag">Ач холбогдол '+imp+'/10</span>')+'</div>'+
+    '<button class="readbtn" id="srcBtn">Эх сурвалж дээр унших →</button>'+
+    '<div class="ai-wrap"><div class="ai-label">AI-тай дэлгэрүүлж ярилцах</div><div class="ai-row">'+
+      '<button class="ai-btn" data-ai="claude"><span class="ai-ic" style="background:#D97757">C</span>Claude</button>'+
+      '<button class="ai-btn" data-ai="chatgpt"><span class="ai-ic" style="background:#10A37F">G</span>ChatGPT</button>'+
+      '<button class="ai-btn" data-ai="gemini"><span class="ai-ic" style="background:#4285F4">G</span>Gemini</button>'+
+    '</div></div>';
+  sheet.querySelector('#srcBtn').onclick=openSource;
+  sheet.querySelectorAll('[data-ai]').forEach(b=>b.onclick=()=>openAI(b.dataset.ai));
+  sheetBack.classList.add('open'); sheet.classList.add('open'); document.body.style.overflow='hidden';
+  sheet.scrollTop=0;
+}
+function closeSheet(){ sheetBack.classList.remove('open'); sheet.classList.remove('open'); document.body.style.overflow=''; renderNews(); }
+sheetBack.onclick=closeSheet;
+function openSource(){ if(!sheetItem)return; if(sheetItem.url)window.open(sheetItem.url,'_blank');
+  else window.open('https://www.google.com/search?q='+encodeURIComponent(sheetItem.title+' '+sheetItem.source),'_blank'); }
+function openAI(p){ if(!sheetItem)return;
+  const prompt='Энэ AI мэдээний талаар дэлгэрүүлж ярилцъя:\n\n"'+sheetItem.title+'"\n\n'+(sheetItem.detail||sheetItem.summary)+'\n\nЭх сурвалж: '+sheetItem.source;
+  const q=encodeURIComponent(prompt);
+  const urls={claude:'https://claude.ai/new?q='+q, chatgpt:'https://chat.openai.com/?q='+q, gemini:'https://aistudio.google.com/prompts/new_chat?q='+q};
+  window.open(urls[p],'_blank'); }
+
+// swipe-down to close sheet
+let sheetTouchY=0, sheetScroll0=0;
+sheet.addEventListener('touchstart',e=>{sheetTouchY=e.touches[0].clientY; sheetScroll0=sheet.scrollTop;},{passive:true});
+sheet.addEventListener('touchend',e=>{ if(e.changedTouches[0].clientY-sheetTouchY>80 && sheetScroll0<=0) closeSheet(); },{passive:true});
+
+// ── Fetch ──────────────────────────────────────────────────────
+async function loadFromServerCache(){
+  try{
+    const r=await fetch(getApiUrl()+'/api/news/cached'); const data=await r.json();
+    let has=false;
+    for(const s of ALL_SOURCES) if(data[s]&&data[s].news&&data[s].news.length){ allSourceData[s]=data[s].news; has=true; }
+    if(has){ persist(); allNews=mergeAllSources(); renderNews(); updateLastUpdated(); updateCacheInfo(); }
+    else if(!Object.values(allSourceData).some(a=>a.length) && navigator.onLine){ fetchNews(); }
+  }catch(e){ /* offline — localStorage already shown */ }
+}
+function persist(){ try{ localStorage.setItem(CACHE_KEY,JSON.stringify(allSourceData)); localStorage.setItem(CACHE_TIME_KEY,new Date().toISOString()); }catch(e){} }
+
+async function fetchNews(){
+  if(isLoading) return;
+  isLoading=true;
+  const btn=document.getElementById('refreshBtn'); btn.classList.add('spin');
+  const err=document.getElementById('errorMsg'); err.classList.remove('on');
+  if(!allNews.length) skeleton();
+  try{
+    const r=await fetch(getApiUrl()+'/api/news/all',{method:'POST',headers:{'Content-Type':'application/json'}});
+    const data=await r.json(); if(data.error) throw new Error(data.error);
+    const errors=[];
+    for(const s of ALL_SOURCES) if(data[s]){ allSourceData[s]=data[s].news||[]; if(data[s].error)errors.push(s); }
+    if(errors.length && errors.length<4){ err.textContent='⚠ Зарим эх сурвалж алдаатай: '+errors.join(', '); err.classList.add('on'); }
+    persist(); allNews=mergeAllSources(); renderNews(); updateLastUpdated(); updateCacheInfo();
+  }catch(e){
+    err.textContent='⚠ Татахад алдаа: '+e.message; err.classList.add('on');
+    const c=localStorage.getItem(CACHE_KEY);
+    if(c){ try{ allSourceData=JSON.parse(c); allNews=mergeAllSources(); renderNews(); }catch(x){} }
+    else emptyView('Мэдээ татахад алдаа гарлаа','Дахин оролдоно уу',true);
+  }
+  btn.classList.remove('spin'); isLoading=false;
+}
+document.getElementById('refreshBtn').onclick=fetchNews;
+
+// ── Auto-refresh / online / pull ───────────────────────────────
+function setupAutoRefresh(){ if(autoRefreshTimer)clearInterval(autoRefreshTimer);
+  autoRefreshTimer=setInterval(()=>{ if(!isLoading && Object.values(allSourceData).some(a=>a.length) && navigator.onLine) fetchNews(); }, getRefreshInterval()*60000); }
+function setupOnline(){ const b=document.getElementById('offlineBanner');
+  const u=()=>b.classList.toggle('on',!navigator.onLine); addEventListener('online',u); addEventListener('offline',u); u(); }
+function setupPull(){
+  let y0=0,pull=false; const ind=document.getElementById('pullIndicator');
+  addEventListener('touchstart',e=>{ if(scrollY===0&&!isLoading){ y0=e.touches[0].clientY; pull=true; } },{passive:true});
+  addEventListener('touchmove',e=>{ if(!pull)return; const dy=e.touches[0].clientY-y0;
+    if(dy>60){ ind.classList.add('on'); ind.textContent='↑ Суллаж шинэчлэх'; } else if(dy>20){ ind.classList.add('on'); ind.textContent='↓ Доош таталт'; } },{passive:true});
+  addEventListener('touchend',()=>{ if(!pull)return; pull=false; if(ind.classList.contains('on')&&ind.textContent.includes('Суллаж'))fetchNews(); ind.classList.remove('on'); },{passive:true});
+}
+function setupScroll(){ const b=document.getElementById('scrollTopBtn');
+  addEventListener('scroll',()=>b.classList.toggle('on',scrollY>400),{passive:true}); b.onclick=()=>scrollTo({top:0,behavior:'smooth'}); }
+
+// ── Updated / cache info ───────────────────────────────────────
+function updateLastUpdated(){ const t=localStorage.getItem(CACHE_TIME_KEY), el=document.getElementById('lastUpdated'); if(!t||!el)return;
+  const m=Math.floor((Date.now()-new Date(t).getTime())/60000); let s;
+  if(m<1)s='дөнгөж сая'; else if(m<60)s=m+' мин'; else if(m<1440)s=Math.floor(m/60)+' цаг'; else s=Math.floor(m/1440)+' өдөр';
+  el.textContent=s; el.title=new Date(t).toLocaleString('mn-MN'); }
+setInterval(updateLastUpdated,60000);
+function updateCacheInfo(){ const c=localStorage.getItem(CACHE_KEY), t=localStorage.getItem(CACHE_TIME_KEY), el=document.getElementById('cacheInfo'); if(!el)return;
+  if(c&&t){ const d=JSON.parse(c); const n=ALL_SOURCES.reduce((x,k)=>x+((d[k]||[]).length),0); el.textContent=n+' мэдээ · '+new Date(t).toLocaleString('mn-MN',{hour:'2-digit',minute:'2-digit'}); }
+  else el.textContent='Кэш хоосон'; }
+
+// ── Settings ───────────────────────────────────────────────────
+function toggleSettings(open){ const p=document.getElementById('settingsPanel'), b=document.getElementById('settingsBackdrop');
+  const on = open===undefined ? !p.classList.contains('open') : open;
+  p.classList.toggle('open',on); b.classList.toggle('open',on); if(!on)updateCacheInfo(); }
+document.getElementById('settingsBtn').onclick=()=>toggleSettings(true);
+document.getElementById('setClose').onclick=()=>toggleSettings(false);
+document.getElementById('settingsBackdrop').onclick=()=>toggleSettings(false);
+document.getElementById('resetRead').onclick=()=>{ readIds=new Set(); try{localStorage.removeItem(READ_IDS_KEY)}catch(e){} updateReadInfo(); renderNews(); };
+document.getElementById('clearCacheBtn').onclick=()=>{ localStorage.removeItem(CACHE_KEY); localStorage.removeItem(CACHE_TIME_KEY);
+  ALL_SOURCES.forEach(s=>allSourceData[s]=[]); allNews=[]; updateCacheInfo(); renderNews(); };
+
+addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(sheet.classList.contains('open'))closeSheet(); else toggleSettings(false); } });
+
+// ── Push notifications ─────────────────────────────────────────
+function b64ToU8(s){ const pad='='.repeat((4-s.length%4)%4); const b=(s+pad).replace(/-/g,'+').replace(/_/g,'/'); const raw=atob(b); return Uint8Array.from([...raw].map(c=>c.charCodeAt(0))); }
+async function setupPush(){ if(!('PushManager'in window)||!('Notification'in window))return;
+  try{ const {publicKey}=await (await fetch(getApiUrl()+'/api/vapid-public-key')).json();
+    const reg=await navigator.serviceWorker.ready; let sub=await reg.pushManager.getSubscription();
+    if(!sub){ if(await Notification.requestPermission()!=='granted')return;
+      sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToU8(publicKey)}); }
+    fetch(getApiUrl()+'/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sub)}).catch(()=>{});
+  }catch(e){} }
+
+// ── Init ───────────────────────────────────────────────────────
+function init(){
+  document.getElementById('apiUrl').value=localStorage.getItem(API_URL_KEY)||'';
+  document.getElementById('refreshInterval').value=getRefreshInterval();
+  const sr=document.getElementById('showReadToggle'); sr.checked=showRead;
+  sr.onchange=function(){ showRead=this.checked; try{localStorage.setItem(SHOW_READ_KEY,showRead?'1':'0')}catch(e){} renderNews(); };
+  document.getElementById('apiUrl').onchange=function(){ localStorage.setItem(API_URL_KEY,this.value.trim()); };
+  document.getElementById('refreshInterval').onchange=function(){ const v=Math.max(5,Math.min(1440,parseInt(this.value)||600)); this.value=v; localStorage.setItem(REFRESH_KEY,v); setupAutoRefresh(); };
+  updateReadInfo(); updateCacheInfo();
+
+  // restore cache
+  const cached=localStorage.getItem(CACHE_KEY);
+  if(cached){ try{ allSourceData=Object.assign(allSourceData,JSON.parse(cached)); }catch(e){} }
+  renderFilters(activeTopic); allNews=mergeAllSources(); renderNews(); updateLastUpdated();
+
+  setupAutoRefresh(); setupOnline(); setupPull(); setupScroll();
+  if('serviceWorker'in navigator) navigator.serviceWorker.register('sw.js').then(setupPush).catch(()=>{});
+  if(navigator.onLine) loadFromServerCache();
+}
 init();
 </script>
 </body>

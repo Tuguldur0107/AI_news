@@ -171,15 +171,17 @@ app.get('/health', (req, res) => {
 // ── Server-side cache ───────────────────────────────────────────
 const CACHE_TTL = parseInt(process.env.CACHE_TTL_MIN || '600', 10) * 60 * 1000;
 const newsCache = {
+  trending:{ data: null, timestamp: 0 },
   google:  { data: null, timestamp: 0 },
   newsapi: { data: null, timestamp: 0 },
   gnews:   { data: null, timestamp: 0 },
+  edge:    { data: null, timestamp: 0 },
   iot:     { data: null, timestamp: 0 },
   rfid:    { data: null, timestamp: 0 },
   dev:     { data: null, timestamp: 0 },
 };
 
-const ALL_SOURCES = ['google', 'newsapi', 'gnews', 'iot', 'rfid', 'dev'];
+const ALL_SOURCES = ['trending', 'google', 'newsapi', 'gnews', 'edge', 'iot', 'rfid', 'dev'];
 
 // ── Persist news cache to disk so restarts don't blank the feed ──
 const CACHE_FILE = path.join(DATA_DIR, 'news-cache.json');
@@ -223,10 +225,12 @@ function isCacheFresh(source) {
 
 // ── Shared: Gemini translate helper ──────────────────────────────
 const TOPIC_CATEGORIES = {
-  ai:   '"model", "research", "business", "safety", "tools"',
-  iot:  '"hardware", "connectivity", "industry", "security", "platform"',
-  rfid: '"hardware", "retail", "logistics", "healthcare", "standard"',
-  dev:  '"agent", "rag", "llm", "vlm", "tooling", "skill"',
+  ai:       '"model", "research", "business", "safety", "tools"',
+  iot:      '"hardware", "connectivity", "industry", "security", "platform"',
+  rfid:     '"hardware", "retail", "logistics", "healthcare", "standard"',
+  dev:      '"agent", "rag", "llm", "vlm", "tooling", "skill"',
+  trending: '"model", "research", "tooling", "agent", "business"',
+  edge:     '"inference", "hardware", "vision", "privacy", "tinyml"',
 };
 
 async function translateWithGemini(articles, topic = 'ai') {
@@ -434,6 +438,89 @@ async function fetchGnewsArticles() {
   }));
 }
 
+// ── EDGE: edge-computing / edge-AI news via Google News RSS ─────
+async function fetchEdgeArticles() {
+  const feed = await rssParser.parseURL(
+    'https://news.google.com/rss/search?q=%22edge+computing%22+OR+%22edge+AI%22+OR+%22on-device+AI%22+OR+%22TinyML%22+OR+%22edge+inference%22&hl=en-US&gl=US&ceid=US:en'
+  );
+  return feed.items.slice(0, 8).map(item => {
+    const parts = (item.title || '').split(' - ');
+    const source = parts.length > 1 ? parts.pop().trim() : 'Google News';
+    const title = parts.join(' - ').trim();
+    return { title, summary: item.contentSnippet || item.content || title, source, url: item.link || '', published: item.pubDate || '' };
+  });
+}
+
+// ── TRENDING: free popularity aggregation (daily.dev-style) ──────
+// Merges Hacker News (upvote score), Dev.to (reactions) and Lobsters
+// (hottest) — all free, keyless, official APIs — then keeps AI/dev-relevant
+// items ranked by per-source-normalized popularity. This is exactly what
+// daily.dev does (aggregate public sources, rank by popularity), for free.
+const TREND_KEYWORDS = /\b(a\.?i\.?|artificial intelligence|machine learning|\bml\b|llm|gpt|claude|gemini|llama|mistral|openai|anthropic|deepseek|agent|\brag\b|vlm|mcp|model|neural|deep learning|transformer|inference|prompt|embedding|fine.?tun|diffusion|pytorch|tensorflow|hugging.?face|dataset|\bgpu\b|cuda|programming|software|framework|open.?source|kubernetes|\brust\b|python|typescript|javascript|database|compiler|robot|chip|semiconductor)\b/i;
+
+async function fetchJsonSafe(url, ms = 8000) {
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(), ms);
+  try {
+    const r = await fetch(url, { signal: c.signal, headers: { 'User-Agent': 'AI-PULSE/1.0 (news aggregator)' } });
+    if (!r.ok) throw new Error(`${r.status}`);
+    return await r.json();
+  } finally { clearTimeout(t); }
+}
+
+async function fetchHackerNewsTop() {
+  const ids = await fetchJsonSafe('https://hacker-news.firebaseio.com/v0/topstories.json');
+  const top = (ids || []).slice(0, 50);
+  const items = await Promise.all(top.map(async id => {
+    try { return await fetchJsonSafe(`https://hacker-news.firebaseio.com/v0/item/${id}.json`, 6000); }
+    catch { return null; }
+  }));
+  return items.filter(i => i && i.title && i.url).map(i => ({
+    title: i.title, summary: i.title, source: 'Hacker News', url: i.url,
+    score: i.score || 0, published: i.time ? new Date(i.time * 1000).toISOString() : '',
+  }));
+}
+
+async function fetchDevtoTop() {
+  const arr = await fetchJsonSafe('https://dev.to/api/articles?top=1&per_page=25');
+  return (arr || []).map(a => ({
+    title: a.title || '', summary: a.description || a.title || '', source: 'Dev.to',
+    url: a.url || '', score: a.positive_reactions_count || 0, published: a.published_at || '',
+  }));
+}
+
+async function fetchLobstersHot() {
+  const arr = await fetchJsonSafe('https://lobste.rs/hottest.json');
+  return (arr || []).map(p => ({
+    title: p.title || '', summary: p.description || p.title || '', source: 'Lobsters',
+    url: p.url || p.comments_url || '', score: p.score || 0, published: p.created_at || '',
+  }));
+}
+
+async function fetchTrendingArticles() {
+  const results = await Promise.allSettled([fetchHackerNewsTop(), fetchDevtoTop(), fetchLobstersHot()]);
+  const all = [];
+  for (const r of results) if (r.status === 'fulfilled') all.push(...r.value);
+  if (all.length === 0) throw new Error('Бүх тренд эх сурвалж бүтсэнгүй');
+
+  // Keep AI/dev-relevant items only
+  const relevant = all.filter(a => a.title && a.url && TREND_KEYWORDS.test(`${a.title} ${a.summary || ''}`));
+
+  // Normalize score within each source (HN=100s, Dev.to/Lobsters=10s) so the
+  // blend is fair, then sort high→low and dedupe by normalized title.
+  const maxBySource = {};
+  for (const a of relevant) maxBySource[a.source] = Math.max(maxBySource[a.source] || 1, a.score);
+  for (const a of relevant) a._norm = a.score / (maxBySource[a.source] || 1);
+  relevant.sort((x, y) => y._norm - x._norm);
+
+  const seen = new Set(); const merged = [];
+  for (const a of relevant) {
+    const key = (a.title || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40);
+    if (key && !seen.has(key)) { seen.add(key); merged.push(a); }
+  }
+  return merged.slice(0, 10);
+}
+
 // ── Fetch + translate one source (with cache) ───────────────────
 async function fetchAndCache(source) {
   if (isCacheFresh(source)) {
@@ -447,8 +534,10 @@ async function fetchAndCache(source) {
     iot: fetchIoTArticles,
     rfid: fetchRFIDArticles,
     dev: fetchDevArticles,
+    trending: fetchTrendingArticles,
+    edge: fetchEdgeArticles,
   };
-  const topicMap = { google: 'ai', newsapi: 'ai', gnews: 'ai', iot: 'iot', rfid: 'rfid', dev: 'dev' };
+  const topicMap = { google: 'ai', newsapi: 'ai', gnews: 'ai', iot: 'iot', rfid: 'rfid', dev: 'dev', trending: 'trending', edge: 'edge' };
   try {
     const articles = await fetchers[source]();
     const translated = await translateWithGemini(articles, topicMap[source]);
